@@ -362,7 +362,45 @@ def main():
                     0                      # eliminado
                 )
                 cursor.execute(amort_sql, amort_params)
-                print(f"  [OK] Successfully inserted record into inversion table.")
+
+                # Insert capital movement record
+                mov_sql = """
+                INSERT INTO movimiento_capital (
+                    id_tipo_movimiento,
+                    id_inversion,
+                    id_venta_inversion,
+                    id_cuenta_bancaria,
+                    signo,
+                    monto,
+                    fecha_movimiento,
+                    descripcion,
+                    conciliado,
+                    fecha_conciliacion,
+                    activo,
+                    eliminado,
+                    fecha_creacion,
+                    fecha_actualizacion
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+                )
+                """
+                mov_params = (
+                    181,                   # id_tipo_movimiento
+                    id_inversion,          # id_inversion
+                    None,                  # id_venta_inversion
+                    None,                  # id_cuenta_bancaria
+                    191,                   # signo
+                    capital_invertido,     # monto
+                    today_date,            # fecha_movimiento
+                    "Compra Nota de Crédito", # descripcion
+                    0,                     # conciliado
+                    None,                  # fecha_conciliacion
+                    1,                     # activo
+                    0                      # eliminado
+                )
+                cursor.execute(mov_sql, mov_params)
+
+                print(f"  [OK] Successfully inserted records into inversion, amortizacion, and movimiento_capital tables.")
                 records_inserted += 1
                 
         # Commit the transaction
