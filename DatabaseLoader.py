@@ -20,7 +20,7 @@ class DatabaseLoader:
     def __init__(self):
         self.db_config = {
             'host': 'localhost',
-            'database': 'inversion',
+            'database': 'inversiones',
             'user': 'root',
             'password': '',
             'port': 3306
@@ -316,7 +316,7 @@ class DatabaseLoader:
 
 def main():
     """Función principal"""
-    print("🗄️  CARGADOR DE DATOS A BASE DE DATOS")
+    print("[BD]  CARGADOR DE DATOS A BASE DE DATOS")
     print("Este programa carga los datos del CSV a la base de datos MySQL")
     print("Base de datos: inversiones, Tabla: inversion")
     print()
@@ -332,39 +332,39 @@ def main():
     print()
     
     # Ejecución automática desde GUI - sin prompts interactivos
-    print("🚀 Iniciando ejecución automática del cargador de base de datos...")
+    print("[INICIO] Iniciando ejecución automática del cargador de base de datos...")
     
     # Encontrar archivo CSV más reciente
     archivo_csv = loader.encontrar_ultimo_csv()
     
     if not archivo_csv:
-        print("❌ No se encontraron archivos CSV para procesar")
+        print("[ERROR] No se encontraron archivos CSV para procesar")
         return
     
-    print(f"\n📁 Archivo a procesar: {os.path.basename(archivo_csv)}")
+    print(f"\n[DIR] Archivo a procesar: {os.path.basename(archivo_csv)}")
     
     # Confirmación automática para ejecución desde GUI
-    print("✅ Continuando automáticamente con la carga a la base de datos...")
+    print("[OK] Continuando automáticamente con la carga a la base de datos...")
     
     # Conectar a la base de datos
     if not loader.conectar_db():
-        print("❌ No se pudo conectar a la base de datos")
+        print("[ERROR] No se pudo conectar a la base de datos")
         return
     
     # Procesar carga
-    print(f"\n🔄 Iniciando carga a base de datos...")
+    print(f"\n[PROCESANDO] Iniciando carga a base de datos...")
     resultados = loader.cargar_csv_a_db(archivo_csv)
     
     # Mostrar resultados
     print("\n" + "="*60)
-    print("📊 RESULTADOS DE LA CARGA")
+    print("[INFO] RESULTADOS DE LA CARGA")
     print("="*60)
     print(f"Total de registros en CSV: {resultados['total_registros']}")
     print(f"Registros insertados: {resultados['insertados']}")
     print(f"Registros con error: {resultados['errores']}")
     
     if resultados['errores'] > 0:
-        print(f"\n❌ DETALLES DE ERRORES:")
+        print(f"\n[ERROR] DETALLES DE ERRORES:")
         for error in resultados['detalles_errores']:
             print(f"   Fila {error.get('fila', 'N/A')}: {error.get('error', 'Error desconocido')}")
             if 'datos' in error:
@@ -375,7 +375,7 @@ def main():
     # Cerrar conexión
     loader.desconectar_db()
     
-    print(f"\n🎉 Proceso completado.")
+    print(f"\n[EXITO] Proceso completado.")
 
 if __name__ == "__main__":
     main()

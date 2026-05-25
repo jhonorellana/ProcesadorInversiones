@@ -234,7 +234,7 @@ def extraer_datos_liquidacion(ruta_archivo):
 
 def main():
     """Función principal para pruebas"""
-    print("🤖 EXTRACTOR GEMINI API - Bolsa de Valores")
+    print("[ROBOT] EXTRACTOR GEMINI API - Bolsa de Valores")
     print("Este programa extrae datos de PDFs usando Gemini API")
     print()
     
@@ -245,15 +245,15 @@ def main():
     carpeta_salida = "../Salida"
     
     if not os.path.exists(carpeta_entrada):
-        print(f"❌ No existe la carpeta de entrada: {carpeta_entrada}")
+        print(f"[ERROR] No existe la carpeta de entrada: {carpeta_entrada}")
         return
     
     # Extraer datos
-    print(f"🔄 Procesando archivos PDF en: {carpeta_entrada}")
+    print(f"[PROCESANDO] Procesando archivos PDF en: {carpeta_entrada}")
     resultados = extractor.procesar_carpeta(carpeta_entrada)
     
     if not resultados:
-        print("❌ No se extrajeron datos")
+        print("[ERROR] No se extrajeron datos")
         return
     
     # Generar archivo de salida
@@ -265,7 +265,7 @@ def main():
     
     # Mostrar resumen
     print("\n" + "="*60)
-    print("📊 RESUMEN DE EXTRACCIÓN GEMINI")
+    print("[INFO] RESUMEN DE EXTRACCIÓN GEMINI")
     print("="*60)
     
     tipos = {}
@@ -276,7 +276,7 @@ def main():
     for tipo, cantidad in tipos.items():
         print(f"{tipo}: {cantidad}")
     
-    print(f"\n📄 Archivo de salida: {os.path.basename(archivo_salida)}")
+    print(f"\n[DOC] Archivo de salida: {os.path.basename(archivo_salida)}")
     print("="*60)
 
 if __name__ == "__main__":

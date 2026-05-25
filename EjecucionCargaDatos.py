@@ -82,15 +82,15 @@ def es_error_conexion(err: mysql.connector.Error) -> bool:
 def imprimir_linea(texto: str, tipo: str = "normal") -> None:
     """
     Inserta una línea en el Text con el estilo indicado:
-    - tipo="normal" → texto negro
-    - tipo="error"  → texto rojo + icono ⚠️ al inicio
+    - tipo="normal" -> texto negro
+    - tipo="error"  -> texto rojo + icono [WARN] al inicio
     """
     if output_text is None:
         return  # seguridad por si algo se ejecuta antes de crear la GUI
 
     tag = "normal"
     if tipo == "error":
-        texto = "⚠️ " + texto
+        texto = "[WARN] " + texto
         tag = "error"
 
     output_text.insert("end", texto + "\n", tag)
@@ -590,6 +590,51 @@ def execute_database_loader() -> None:
         escribir_log(mensaje)
 
 
+def execute_new_database_loader() -> None:
+    """Ejecuta CargadorBDD.py para cargar CSV a la nueva base de datos."""
+    escribir_log("Iniciando cargador de nueva base de datos.")
+    imprimir_linea("Iniciando carga de CSV a la nueva base de datos...", "normal")
+
+    try:
+        result = subprocess.run(
+            ["python", "CargadorBDD.py"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.stdout:
+            for line in result.stdout.splitlines():
+                escribir_log(line)
+                if 'error' in line.lower():
+                    imprimir_linea(line, "error")
+                else:
+                    imprimir_linea(line, "normal")
+
+        if result.stderr:
+            for line in result.stderr.splitlines():
+                escribir_log(f"STDERR: {line}")
+                imprimir_linea(f"STDERR: {line}", "error")
+
+        escribir_log("Cargador de nueva base de datos finalizado.")
+        resetear_color_pantalla("Carga a nueva base de datos completada.")
+        messagebox.showinfo(
+            "Cargador Nueva BDD", "Carga de CSV a la nueva base de datos finalizada correctamente."
+        )
+    except subprocess.CalledProcessError as e:
+        mensaje = f"Error al ejecutar CargadorBDD.py: código {e.returncode}"
+        marcar_error_en_pantalla("Error en el cargador de nueva base de datos.")
+        imprimir_linea(mensaje, "error")
+        escribir_log(mensaje)
+        if e.stderr:
+            imprimir_linea(f"STDERR: {e.stderr}", "error")
+    except Exception as e:
+        mensaje = f"Error inesperado al ejecutar CargadorBDD.py: {str(e)}"
+        marcar_error_en_pantalla("Error inesperado en el cargador de nueva base de datos.")
+        imprimir_linea(mensaje, "error")
+        escribir_log(mensaje)
+
+
 # ---------------------------------------
 # Manejo de botones y multi-hilo
 # ---------------------------------------
@@ -645,6 +690,12 @@ def start_execution_main_procesador() -> None:
 def start_execution_database_loader() -> None:
     run_in_thread(
         execute_database_loader, "Ejecutando: Carga a Base de Datos..."
+    )
+
+
+def start_execution_new_database_loader() -> None:
+    run_in_thread(
+        execute_new_database_loader, "Ejecutando: Carga a Nueva Base de Datos..."
     )
 
 
@@ -982,7 +1033,7 @@ frame_carga_inversiones = tk.LabelFrame(
 )
 frame_carga_inversiones.pack(fill="x", padx=5, pady=3)
 
-for col in range(2):
+for col in range(3):
     frame_carga_inversiones.grid_columnconfigure(col, weight=1)
 
 btn_pdf_carga = tk.Button(
@@ -1002,6 +1053,15 @@ btn_db_carga = tk.Button(
     command=start_execution_database_loader,
 )
 btn_db_carga.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+btn_new_db_carga = tk.Button(
+    frame_carga_inversiones,
+    text="Cargar a nueva DB",
+    font=("Arial", 11),
+    width=BUTTON_WIDTH,
+    command=start_execution_new_database_loader,
+)
+btn_new_db_carga.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
 # Frame: Scripts individuales
 frame_scripts = tk.LabelFrame(
@@ -1061,6 +1121,6 @@ output_text.tag_config("normal", foreground="black")
 output_text.tag_config("error", foreground="red")
 
 # Registrar todos los botones
-all_buttons = [btn_all, btn_carga, btn_backup, btn_procedimientos, btn_descarga, btn_pdf_carga, btn_db_carga] + script_buttons
+all_buttons = [btn_all, btn_carga, btn_backup, btn_procedimientos, btn_descarga, btn_pdf_carga, btn_db_carga, btn_new_db_carga] + script_buttons
 
 root.mainloop()

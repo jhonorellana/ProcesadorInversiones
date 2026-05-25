@@ -6,6 +6,7 @@ import json
 import csv
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
@@ -24,6 +25,56 @@ class PDFExtractor:
     
     def __init__(self):
         self.model = genai.GenerativeModel('models/gemini-flash-latest')
+    
+    def extraer_tipo_operacion(self, texto: str) -> str:
+        """Extrae el tipo de operacion (Compra o Venta) del texto."""
+        lineas = texto.split('\n')
+        for i, linea in enumerate(lineas):
+            linea_strip = linea.strip()
+
+            # Formato BVG: 'Postura:' en la linea, valor en la siguiente
+            if 'Postura:' in linea:
+                resto = linea.split('Postura:')[1].strip()
+                if resto:
+                    palabra = resto.split()[0].upper()
+                    if palabra in ('COMPRA', 'VENTA'):
+                        return palabra
+                if i + 1 < len(lineas):
+                    siguiente = lineas[i + 1].strip()
+                    palabra = siguiente.split()[0].upper() if siguiente else ''
+                    if palabra in ('COMPRA', 'VENTA'):
+                        return palabra
+
+            # Formato BVQ: 'Liquidacion de contrato:' contiene Compra o Venta
+            if 'Liquidaci' in linea and 'contrato' in linea.lower():
+                texto_buscar = linea
+                if i + 1 < len(lineas):
+                    texto_buscar += ' ' + lineas[i + 1]
+                match = re.search(r'(Compra|Venta)', texto_buscar, re.IGNORECASE)
+                if match:
+                    return match.group(1).upper()
+
+        return ''
+    
+    def extraer_propietario(self, texto: str) -> str:
+        """Extrae el nombre del propietario del texto del PDF."""
+        lineas = texto.split('\n')
+        for i, linea in enumerate(lineas):
+            linea_strip = linea.strip()
+            
+            # Buscar patrones comunes para nombres de propietarios
+            if any(palabra in linea_strip for palabra in ['Cliente:', 'Inversionista:', 'Propietario:', 'Titular:', 'Nombre:']):
+                for campo in ['Cliente:', 'Inversionista:', 'Propietario:', 'Titular:', 'Nombre:']:
+                    if campo in linea_strip:
+                        resto = linea_strip.split(campo)[1].strip()
+                        if resto:
+                            return resto
+                        if i + 1 < len(lineas):
+                            siguiente = lineas[i + 1].strip()
+                            if siguiente and not any(palabra in siguiente for palabra in ['Sector', 'Dirección', 'Teléfono', 'Email']):
+                                return siguiente
+        
+        return ''
     
     def identificar_tipo_documento(self, texto: str) -> str:
         """Identifica el tipo de documento basado en el contenido"""
@@ -69,6 +120,8 @@ class PDFExtractor:
             Extrae todos los campos disponibles y devuélvelos exclusivamente en formato JSON puro.
             IMPORTANTE: No uses markdown code blocks (```json```), responde directamente con el JSON.
             Agrupa la información en las siguientes categorías:
+            - Propietario (propietario)
+            - Tipo de operación de COMPRA o de VENTA (tipo_operacion)
             - Tipo de documento (tipo_documento)
             - Número de operación o liquidación (operacion_no)
             - Título del valor (titulo_valor)
@@ -119,6 +172,20 @@ class PDFExtractor:
                 
                 # Parsear JSON response
                 datos = json.loads(texto_limpio)
+                
+                # Agregar campos de operacion y propietario al inicio
+                datos_con_campos = {'tipo_operacion': '', 'propietario': ''}
+                datos_con_campos.update(datos)
+                datos = datos_con_campos
+                
+                # Extraer tipo de operacion y propietario del texto de la respuesta
+                tipo_operacion = self.extraer_tipo_operacion(response.text)
+                if tipo_operacion:
+                    datos['tipo_operacion'] = tipo_operacion
+                
+                propietario = self.extraer_propietario(response.text)
+                if propietario:
+                    datos['propietario'] = propietario
                 
                 # Agregar información del archivo
                 datos['archivo'] = os.path.basename(ruta_archivo)
@@ -215,7 +282,7 @@ class PDFExtractor:
                 todos_los_campos.update(resultado.keys())
             
             # Ordenar campos para consistencia
-            campos_principales = ['tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
+            campos_principales = ['tipo_operacion', 'propietario', 'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
                                'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
                                'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
                                'precio', 'tasa_interes_vigente', 'monto_a_negociar',
@@ -243,7 +310,7 @@ class PDFExtractor:
 
 def main():
     """Función principal para pruebas"""
-    print("🤖 EXTRACTOR GEMINI API - Bolsa de Valores")
+    print("[ROBOT] EXTRACTOR GEMINI API - Bolsa de Valores")
     print("Este programa extrae datos de PDFs usando Gemini API")
     print()
     
@@ -254,16 +321,16 @@ def main():
     carpeta_salida = "../Salida"
     
     if not os.path.exists(carpeta_entrada):
-        print(f"❌ No existe la carpeta de entrada: {carpeta_entrada}")
+        print(f"[ERROR] No existe la carpeta de entrada: {carpeta_entrada}")
         return
     
     # Extraer datos
-    print(f"🔄 Procesando archivos PDF en: {carpeta_entrada}")
-    print("ℹ️  Se excluirán archivos que empiecen con '4. FACTURA DE BOLSA'")
+    print(f"[PROCESANDO] Procesando archivos PDF en: {carpeta_entrada}")
+    print("   Se excluirán archivos que empiecen con '4. FACTURA DE BOLSA'")
     resultados = extractor.procesar_carpeta(carpeta_entrada)
     
     if not resultados:
-        print("❌ No se extrajeron datos")
+        print("[ERROR] No se extrajeron datos")
         return
     
     # Generar archivo de salida
@@ -275,7 +342,7 @@ def main():
     
     # Mostrar resumen
     print("\n" + "="*60)
-    print("📊 RESUMEN DE EXTRACCIÓN GEMINI")
+    print("[INFO] RESUMEN DE EXTRACCIÓN GEMINI")
     print("="*60)
     
     tipos = {}
@@ -286,7 +353,7 @@ def main():
     for tipo, cantidad in tipos.items():
         print(f"{tipo}: {cantidad}")
     
-    print(f"\n📄 Archivo de salida: {os.path.basename(archivo_salida)}")
+    print(f"\n[DOC] Archivo de salida: {os.path.basename(archivo_salida)}")
     print("="*60)
 
 if __name__ == "__main__":

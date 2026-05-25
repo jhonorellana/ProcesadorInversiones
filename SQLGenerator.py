@@ -268,7 +268,7 @@ class SQLGenerator:
 
 def main():
     """Función principal"""
-    print("📝 GENERADOR DE ARCHIVOS SQL")
+    print("[LOG] GENERADOR DE ARCHIVOS SQL")
     print("Este programa genera sentencias SQL INSERT a partir de datos CSV")
     print("Base de datos: inversiones, Tabla: inversion")
     print()
@@ -280,10 +280,10 @@ def main():
     archivo_csv = generator.encontrar_ultimo_csv()
     
     if not archivo_csv:
-        print("❌ No se encontraron archivos CSV para procesar")
+        print("[ERROR] No se encontraron archivos CSV para procesar")
         return
     
-    print(f"📁 Archivo a procesar: {os.path.basename(archivo_csv)}")
+    print(f"[DIR] Archivo a procesar: {os.path.basename(archivo_csv)}")
     
     # Confirmar operación
     confirmacion = input("¿Desea generar el archivo SQL? (S/N): ").strip().upper()
@@ -292,31 +292,31 @@ def main():
         return
     
     # Generar archivo SQL
-    print(f"\n🔄 Generando archivo SQL...")
+    print(f"\n[PROCESANDO] Generando archivo SQL...")
     resultados = generator.generar_archivo_sql(archivo_csv)
     
     # Mostrar resultados
     print("\n" + "="*60)
-    print("📊 RESULTADOS DE LA GENERACIÓN")
+    print("[INFO] RESULTADOS DE LA GENERACIÓN")
     print("="*60)
     print(f"Total de registros en CSV: {resultados['total_registros']}")
     print(f"Sentencias SQL generadas: {resultados['sql_generados']}")
     print(f"Registros con error: {resultados['errores']}")
     
     if resultados['archivo_sql']:
-        print(f"\n📄 Archivo SQL generado: {os.path.basename(resultados['archivo_sql'])}")
-        print(f"📍 Ruta completa: {resultados['archivo_sql']}")
+        print(f"\n[DOC] Archivo SQL generado: {os.path.basename(resultados['archivo_sql'])}")
+        print(f"[INFO] Ruta completa: {resultados['archivo_sql']}")
     
     if resultados['errores'] > 0:
-        print(f"\n❌ DETALLES DE ERRORES:")
+        print(f"\n[ERROR] DETALLES DE ERRORES:")
         for error in resultados['detalles_errores']:
             print(f"   Fila {error.get('fila', 'N/A')}: {error.get('error', 'Error desconocido')}")
             if 'datos' in error:
                 print(f"      Archivo: {error['datos']}")
     
     print("="*60)
-    print(f"\n🎉 Proceso completado.")
-    print(f"💡 Para ejecutar las sentencias SQL:")
+    print(f"\n[EXITO] Proceso completado.")
+    print(f"[TIP] Para ejecutar las sentencias SQL:")
     print(f"   mysql -u root -p inversiones < {os.path.basename(resultados['archivo_sql']) if resultados['archivo_sql'] else 'archivo.sql'}")
 
 if __name__ == "__main__":

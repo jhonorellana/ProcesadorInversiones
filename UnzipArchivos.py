@@ -164,33 +164,33 @@ class Unzipper:
         print(f"Errores: {resultados['errores']}")
         
         if resultados['detalles']:
-            print(f"\n📁 DETALLES POR ARCHIVO:")
+            print(f"\n[DIR] DETALLES POR ARCHIVO:")
             for detalle in resultados['detalles']:
-                print(f"\n📦 {detalle['archivo_zip']}")
+                print(f"\n[ZIP] {detalle['archivo_zip']}")
                 if detalle['exitoso']:
                     archivos_extraidos = detalle['archivos_extraidos']
                     pdfs_extraidos = [a for a in archivos_extraidos if a.get('es_pdf', False)]
                     otros_archivos = [a for a in archivos_extraidos if not a.get('es_pdf', False)]
                     
-                    print(f"   ✅ Extraídos: {len(archivos_extraidos)} archivos totales")
-                    print(f"      📄 PDFs: {len(pdfs_extraidos)}")
-                    print(f"      📎 Otros: {len(otros_archivos)}")
+                    print(f"   [OK] Extraídos: {len(archivos_extraidos)} archivos totales")
+                    print(f"      [DOC] PDFs: {len(pdfs_extraidos)}")
+                    print(f"      [ARCH] Otros: {len(otros_archivos)}")
                     
                     # Mostrar carpetas anidadas encontradas
                     carpetas_origen = set(a.get('carpeta_original', 'raíz') for a in archivos_extraidos)
                     if len(carpetas_origen) > 1 or 'raíz' not in carpetas_origen:
-                        print(f"      📂 Carpetas anidadas: {', '.join(sorted(carpetas_origen))}")
+                        print(f"      [DIR] Carpetas anidadas: {', '.join(sorted(carpetas_origen))}")
                     
                     # Mostrar primeros archivos
                     print(f"      Archivos extraídos:")
                     for i, archivo in enumerate(archivos_extraidos[:5]):
-                        carpeta_icon = "📁" if archivo.get('carpeta_original', 'raíz') != 'raíz' else "📄"
+                        carpeta_icon = "[DIR]" if archivo.get('carpeta_original', 'raíz') != 'raíz' else "[DOC]"
                         print(f"         {i+1}. {carpeta_icon} {archivo['nombre_original']} ({archivo['tamaño']} bytes)")
                     
                     if len(archivos_extraidos) > 5:
                         print(f"         ... y {len(archivos_extraidos) - 5} archivos más")
                 else:
-                    print(f"   ❌ Error en extracción")
+                    print(f"   [ERROR] Error en extracción")
                     for error in detalle['errores']:
                         print(f"      - {error}")
         
@@ -213,7 +213,7 @@ class Unzipper:
 
 def main():
     """Función principal"""
-    print("🗂️  DESCOMPRESOR DE ARCHIVOS ZIP")
+    print("[INDEX]  DESCOMPRESOR DE ARCHIVOS ZIP")
     print("Este programa descomprime todos los archivos ZIP de la carpeta Entrada")
     print("Los archivos extraídos se guardan en la misma carpeta Entrada")
     print()
@@ -225,7 +225,7 @@ def main():
     archivos_zip = unzipper.listar_archivos_zip()
     
     if not archivos_zip:
-        print("❌ No se encontraron archivos ZIP en la carpeta Entrada")
+        print("[ERROR] No se encontraron archivos ZIP en la carpeta Entrada")
         return
     
     print(f"Se encontraron {len(archivos_zip)} archivos ZIP:")
@@ -243,14 +243,14 @@ def main():
         return
     
     # Procesar descompresión
-    print(f"\n🔄 Iniciando descompresión...")
+    print(f"\n[PROCESANDO] Iniciando descompresión...")
     resultados = unzipper.descomprimir_todos()
     
     # Mostrar resumen y guardar reporte
     unzipper.mostrar_resumen(resultados)
     unzipper.guardar_reporte(resultados)
     
-    print(f"\n🎉 Proceso completado. Revise la carpeta Entrada y el reporte en Salida.")
+    print(f"\n[EXITO] Proceso completado. Revise la carpeta Entrada y el reporte en Salida.")
 
 if __name__ == "__main__":
     main()

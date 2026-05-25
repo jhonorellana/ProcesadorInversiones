@@ -57,7 +57,7 @@ class MainProcesador:
         archivos_excluidos = len(archivos_pdf) - len(archivos_filtrados)
         
         if archivos_excluidos > 0:
-            print(f"ℹ️  Se excluyeron {archivos_excluidos} archivos de factura de bolsa")
+            print(f"   Se excluyeron {archivos_excluidos} archivos de factura de bolsa")
             logger.info(f"Se excluyeron {archivos_excluidos} archivos de factura de bolsa")
         
         return archivos_filtrados, archivos_excluidos
@@ -74,7 +74,7 @@ class MainProcesador:
             if nombre_archivo:
                 datos_por_archivo[nombre_archivo] = dato
         
-        print(f"📊 Usando datos extraídos de {len(datos_extraidos)} archivos para renombrar")
+        print(f"[INFO] Usando datos extraídos de {len(datos_extraidos)} archivos para renombrar")
         
         for archivo in archivos_filtrados:
             ruta_completa = os.path.join(self.carpeta_entrada, archivo)
@@ -103,7 +103,7 @@ class MainProcesador:
                             'operacion_no': operacion_no,
                             'valor_nominal': valor_nominal
                         })
-                        logger.info(f"✅ Renombrado: {archivo} -> {exito['nombre_nuevo']}")
+                        logger.info(f"[OK] Renombrado: {archivo} -> {exito['nombre_nuevo']}")
                     else:
                         errores.append({
                             'archivo': archivo,
@@ -137,12 +137,12 @@ class MainProcesador:
         print(f"Errores: {len(errores)}")
         
         if archivos_renombrados:
-            print(f"\n✅ ARCHIVOS RENOMBRADOS EXITOSAMENTE:")
+            print(f"\n[OK] ARCHIVOS RENOMBRADOS EXITOSAMENTE:")
             for archivo in archivos_renombrados:
                 print(f"   {archivo['nombre_original']} -> {archivo['nombre_nuevo']}")
         
         if errores:
-            print(f"\n❌ ERRORES:")
+            print(f"\n[ERROR] ERRORES:")
             for error in errores:
                 print(f"   {error['archivo']}: {error['error']}")
         
@@ -204,7 +204,7 @@ class MainProcesador:
             archivos_zip = unzipper.listar_archivos_zip()
             
             if not archivos_zip:
-                print("ℹ️  No se encontraron archivos ZIP para descomprimir")
+                print("   No se encontraron archivos ZIP para descomprimir")
                 return {
                     'exitoso': True,
                     'mensaje': 'No hay archivos ZIP para procesar',
@@ -216,7 +216,7 @@ class MainProcesador:
             for archivo in archivos_zip:
                 ruta_completa = os.path.join(self.carpeta_entrada, archivo)
                 tamaño = os.path.getsize(ruta_completa)
-                print(f"  📦 {archivo} ({tamaño:,} bytes)")
+                print(f"  [ZIP] {archivo} ({tamaño:,} bytes)")
             
             # Descomprimir
             resultados = unzipper.descomprimir_todos()
@@ -252,7 +252,7 @@ class MainProcesador:
                     archivos_pdf.append(archivo)
             
             if not archivos_pdf:
-                print("ℹ️  No se encontraron archivos PDF para renombrar")
+                print("   No se encontraron archivos PDF para renombrar")
                 return {
                     'exitoso': True,
                     'mensaje': 'No hay archivos PDF para procesar',
@@ -264,7 +264,7 @@ class MainProcesador:
             archivos_filtrados, archivos_excluidos = self.filtrar_archivos_pdf(archivos_pdf)
             
             if not archivos_filtrados:
-                print("ℹ️  No se encontraron archivos PDF válidos para renombrar")
+                print("   No se encontraron archivos PDF válidos para renombrar")
                 return {
                     'exitoso': True,
                     'mensaje': 'No hay archivos PDF válidos para procesar',
@@ -281,11 +281,11 @@ class MainProcesador:
             
             # Renombrar usando datos ya extraídos si están disponibles
             if datos_extraidos and 'resultados' in datos_extraidos:
-                print("🔄 Usando datos ya extraídos para renombrar (evitando llamadas adicionales a la API)")
+                print("[PROCESANDO] Usando datos ya extraídos para renombrar (evitando llamadas adicionales a la API)")
                 resultados = self.renombrar_usando_datos_existentes(archivos_filtrados, datos_extraidos['resultados'])
             else:
                 # Fallback: método tradicional (solo si no hay datos extraídos)
-                print("⚠️  No se encontraron datos extraídos, usando método tradicional")
+                print("[WARN]  No se encontraron datos extraídos, usando método tradicional")
                 renombrador = RenombradorArchivos(self.carpeta_entrada)
                 resultados = renombrador.procesar_lista_archivos(archivos_filtrados)
                 renombrador.mostrar_resumen(resultados)
@@ -323,7 +323,7 @@ class MainProcesador:
                     archivos_pdf.append(archivo)
             
             if not archivos_pdf:
-                print("ℹ️  No se encontraron archivos PDF para extraer datos")
+                print("   No se encontraron archivos PDF para extraer datos")
                 return {
                     'exitoso': True,
                     'mensaje': 'No hay archivos PDF para procesar',
@@ -335,7 +335,7 @@ class MainProcesador:
             archivos_filtrados, archivos_excluidos = self.filtrar_archivos_pdf(archivos_pdf)
             
             if not archivos_filtrados:
-                print("ℹ️  No se encontraron archivos PDF válidos para extraer datos")
+                print("   No se encontraron archivos PDF válidos para extraer datos")
                 return {
                     'exitoso': True,
                     'mensaje': 'No hay archivos PDF válidos para procesar',
@@ -354,7 +354,7 @@ class MainProcesador:
                 resultados = extractor.procesar_carpeta(self.carpeta_entrada)
             
             if resultados:
-                print(f"\n📊 RESUMEN DE EXTRACCIÓN:")
+                print(f"\n[INFO] RESUMEN DE EXTRACCIÓN:")
                 print(f"Total de registros extraídos: {len(resultados)}")
                 
                 # Contar por tipo de documento
@@ -381,7 +381,7 @@ class MainProcesador:
                     'resultados': resultados  # Agregar resultados brutos para reutilizar en renombrado
                 }
             else:
-                print("⚠️  No se extrajeron datos de los archivos PDF")
+                print("[WARN]  No se extrajeron datos de los archivos PDF")
                 return {
                     'exitoso': False,
                     'mensaje': 'No se pudieron extraer datos',
@@ -396,32 +396,32 @@ class MainProcesador:
     
     def ejecutar_proceso_completo(self) -> Dict[str, Any]:
         """Ejecuta la secuencia completa de procesamiento"""
-        print("🚀 INICIANDO PROCESO COMPLETO DE PROCESAMIENTO DE DOCUMENTOS")
+        print("[INICIO] INICIANDO PROCESO COMPLETO DE PROCESAMIENTO DE DOCUMENTOS")
         print(f"Fecha y hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Carpeta de entrada: {os.path.abspath(self.carpeta_entrada)}")
         print(f"Carpeta de salida: {os.path.abspath(self.carpeta_salida)}")
         
         # Verificar estructura de carpetas
         if not self.verificar_estructura_carpetas():
-            print("❌ Error en la verificación de carpetas. Proceso cancelado.")
+            print("[ERROR] Error en la verificación de carpetas. Proceso cancelado.")
             return {'exitoso': False, 'error': 'Error en estructura de carpetas'}
         
         # Ejecutar cada paso
-        print("\n🔄 Iniciando secuencia de procesamiento optimizada...")
+        print("\n[PROCESANDO] Iniciando secuencia de procesamiento optimizada...")
         
         # Paso 1: Descomprimir
         self.resultados_globales['descompresion'] = self.paso_1_descomprimir()
         
         # Paso 2: Extraer datos (ahora antes de renombrar para eficiencia)
-        print("\n🎯 EXTRAYENDO DATOS PRIMERO (para usar en renombrado)")
+        print("\n[META] EXTRAYENDO DATOS PRIMERO (para usar en renombrado)")
         self.resultados_globales['extraccion'] = self.paso_3_extraer_datos()
         
         # Paso 3: Renombrar usando datos ya extraídos
         if self.resultados_globales['extraccion'].get('exitoso'):
-            print("\n🔄 RENOMBRANDO USANDO DATOS YA EXTRAÍDOS")
+            print("\n[PROCESANDO] RENOMBRANDO USANDO DATOS YA EXTRAÍDOS")
             self.resultados_globales['renombrado'] = self.paso_2_renombrar(self.resultados_globales['extraccion'])
         else:
-            print("\n⚠️  No se pudieron extraer datos, intentando renombrado tradicional")
+            print("\n[WARN]  No se pudieron extraer datos, intentando renombrado tradicional")
             self.resultados_globales['renombrado'] = self.paso_2_renombrar()
         
         # Resumen final
@@ -435,40 +435,40 @@ class MainProcesador:
     def mostrar_resumen_final(self):
         """Muestra un resumen final de todo el proceso"""
         print("\n" + "="*80)
-        print("📋 RESUMEN FINAL DEL PROCESO COMPLETO")
+        print("[INFO] RESUMEN FINAL DEL PROCESO COMPLETO")
         print("="*80)
         
         # Descompresión
         descomp = self.resultados_globales['descompresion']
         if descomp.get('exitoso'):
-            print(f"✅ Descompresión: {descomp.get('archivos_extraidos', 0)} archivos extraídos")
+            print(f"[OK] Descompresión: {descomp.get('archivos_extraidos', 0)} archivos extraídos")
         else:
-            print(f"❌ Descompresión: {descomp.get('error', 'Error desconocido')}")
+            print(f"[ERROR] Descompresión: {descomp.get('error', 'Error desconocido')}")
         
         # Renombrado
         renomb = self.resultados_globales['renombrado']
         if renomb.get('archivos_renombrados', 0) > 0:
-            print(f"✅ Renombrado: {renomb.get('archivos_renombrados', 0)} archivos renombrados")
+            print(f"[OK] Renombrado: {renomb.get('archivos_renombrados', 0)} archivos renombrados")
         else:
-            print(f"ℹ️  Renombrado: {renomb.get('mensaje', 'No se procesaron archivos')}")
+            print(f"   Renombrado: {renomb.get('mensaje', 'No se procesaron archivos')}")
         
         # Extracción
         extra = self.resultados_globales['extraccion']
         if extra.get('exitoso'):
-            print(f"✅ Extracción: {extra.get('total_registros', 0)} registros extraídos")
+            print(f"[OK] Extracción: {extra.get('total_registros', 0)} registros extraídos")
             if extra.get('archivo_salida'):
-                print(f"📁 Archivo de salida: {extra['archivo_salida']}")
+                print(f"[DIR] Archivo de salida: {extra['archivo_salida']}")
         else:
-            print(f"❌ Extracción: {extra.get('error', extra.get('mensaje', 'Error desconocido'))}")
+            print(f"[ERROR] Extracción: {extra.get('error', extra.get('mensaje', 'Error desconocido'))}")
         
         # Errores globales
         if self.resultados_globales['errores']:
-            print(f"\n⚠️  Errores encontrados: {len(self.resultados_globales['errores'])}")
+            print(f"\n[WARN]  Errores encontrados: {len(self.resultados_globales['errores'])}")
             for error in self.resultados_globales['errores']:
                 print(f"   - {error}")
         
         print("="*80)
-        print(f"🎉 Proceso completado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[EXITO] Proceso completado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     def guardar_reporte_global(self):
         """Guarda un reporte global de todo el proceso"""
@@ -485,29 +485,29 @@ class MainProcesador:
                 json.dump(self.resultados_globales, f, indent=2, ensure_ascii=False)
             
             logger.info(f"Reporte global guardado en: {archivo_reporte}")
-            print(f"\n📊 Reporte global guardado en: {archivo_reporte}")
+            print(f"\n[INFO] Reporte global guardado en: {archivo_reporte}")
             
         except Exception as e:
             logger.error(f"Error guardando reporte global: {e}")
 
 def main():
     """Función principal"""
-    print("🎯 PROCESADOR PRINCIPAL DE DOCUMENTOS FINANCIEROS (OPTIMIZADO)")
+    print("[META] PROCESADOR PRINCIPAL DE DOCUMENTOS FINANCIEROS (OPTIMIZADO)")
     print("Este programa ejecuta la secuencia completa de procesamiento:")
     print("  1. Descomprimir archivos ZIP")
     print("  2. Extraer datos de los PDF (con Gemini fallback si es necesario)")
     print("  3. Renombrar archivos PDF usando datos ya extraídos")
-    print("\n✨ Optimización: Los datos se extraen solo UNA VEZ y se reutilizan")
+    print("\n[OK] Optimización: Los datos se extraen solo UNA VEZ y se reutilizan")
     print()
     
     # Confirmar ejecución - automático para ejecución desde GUI
-    print("🚀 Iniciando ejecución automática del proceso completo...")
+    print("[INICIO] Iniciando ejecución automática del proceso completo...")
     
     # Crear y ejecutar procesador
     procesador = MainProcesador()
     resultados = procesador.ejecutar_proceso_completo()
     
-    print("\n🏁 Programa finalizado. Revise los reportes en la carpeta Salida.")
+    print("\n[FIN] Programa finalizado. Revise los reportes en la carpeta Salida.")
 
 if __name__ == "__main__":
     main()

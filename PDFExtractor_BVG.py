@@ -20,6 +20,68 @@ class PDFExtractor:
         self.datos_extraidos = {}
         self.gemini_extractor = PDFExtractorGemini()  # Instancia del extractor Gemini como fallback
     
+    def extraer_tipo_operacion(self, texto: str) -> str:
+        """Extrae el tipo de operacion (Compra o Venta) del texto del PDF.
+        
+        Soporta dos formatos:
+        - BVG: campo 'Postura:' seguido de COMPRA o VENTA en la siguiente linea.
+        - BVQ: campo 'Liquidacion de contrato:' que contiene 'Compra' o 'Venta'.
+        """
+        lineas = texto.split('\n')
+        for i, linea in enumerate(lineas):
+            linea_strip = linea.strip()
+
+            # Formato BVG: 'Postura:' en la linea, valor en la siguiente
+            if 'Postura:' in linea:
+                # El valor puede estar en la misma linea o en la siguiente
+                # Ejemplo: "Postura:\nCOMPRA Factura No.:"
+                resto = linea.split('Postura:')[1].strip()
+                if resto:
+                    palabra = resto.split()[0].upper()
+                    if palabra in ('COMPRA', 'VENTA'):
+                        return palabra
+                # Buscar en la linea siguiente
+                if i + 1 < len(lineas):
+                    siguiente = lineas[i + 1].strip()
+                    palabra = siguiente.split()[0].upper() if siguiente else ''
+                    if palabra in ('COMPRA', 'VENTA'):
+                        return palabra
+
+            # Formato BVQ: 'Liquidacion de contrato:' contiene Compra o Venta
+            if 'Liquidaci' in linea and 'contrato' in linea.lower():
+                # Buscar en la misma linea y en la siguiente
+                texto_buscar = linea
+                if i + 1 < len(lineas):
+                    texto_buscar += ' ' + lineas[i + 1]
+                match = re.search(r'(Compra|Venta)', texto_buscar, re.IGNORECASE)
+                if match:
+                    return match.group(1).upper()
+
+        return ''
+
+    def extraer_propietario(self, texto: str) -> str:
+        """Extrae el nombre del propietario del texto del PDF."""
+        lineas = texto.split('\n')
+        for i, linea in enumerate(lineas):
+            linea_strip = linea.strip()
+            
+            # Buscar patrones comunes para nombres de propietarios
+            # Ejemplo: "Cliente:", "Inversionista:", "Propietario:", "Titular:"
+            if any(palabra in linea_strip for palabra in ['Cliente:', 'Inversionista:', 'Propietario:', 'Titular:', 'Nombre:']):
+                # Extraer el valor que sigue después del campo
+                for campo in ['Cliente:', 'Inversionista:', 'Propietario:', 'Titular:', 'Nombre:']:
+                    if campo in linea_strip:
+                        resto = linea_strip.split(campo)[1].strip()
+                        if resto:
+                            return resto
+                        # Si está en la siguiente línea
+                        if i + 1 < len(lineas):
+                            siguiente = lineas[i + 1].strip()
+                            if siguiente and not any(palabra in siguiente for palabra in ['Sector', 'Dirección', 'Teléfono', 'Email']):
+                                return siguiente
+        
+        return ''
+    
     def limpiar_valor_numerico(self, valor: str) -> str:
         """Limpia valores numéricos eliminando comas y espacios"""
         if not valor:
@@ -64,6 +126,8 @@ class PDFExtractor:
     def extraer_datos_nota_credito(self, texto: str) -> Dict[str, Any]:
         """Extrae datos específicos de una nota de crédito"""
         datos = {
+            'tipo_operacion': '',
+            'propietario': '',
             'tipo_documento': 'NOTA_CREDITO',
             'operacion_no': '',
             'titulo_valor': '',
@@ -209,6 +273,8 @@ class PDFExtractor:
     def extraer_datos_bono_estado(self, texto: str) -> Dict[str, Any]:
         """Extrae datos específicos de Bonos del Estado de BVG"""
         datos = {
+            'tipo_operacion': '',
+            'propietario': '',
             'tipo_documento': 'BONO_ESTADO',
             'operacion_no': '',
             'titulo_valor': '',
@@ -454,6 +520,22 @@ class PDFExtractor:
                 }
                 logger.warning(f"Ningún extractor pudo procesar el archivo: {os.path.basename(ruta_pdf)}")
         
+        # Extraer tipo de operacion del texto crudo (aplica a todos los tipos de documento)
+        tipo_operacion = self.extraer_tipo_operacion(texto)
+        if tipo_operacion:
+            datos['tipo_operacion'] = tipo_operacion
+        else:
+            # Si no se encuentra el tipo de operación, dejar vacío
+            datos['tipo_operacion'] = ''
+        
+        # Extraer propietario del documento
+        propietario = self.extraer_propietario(texto)
+        if propietario:
+            datos['propietario'] = propietario
+        else:
+            # Si no se encuentra el propietario, dejar vacío
+            datos['propietario'] = ''
+
         # Agregar metadatos
         datos['archivo'] = os.path.basename(ruta_pdf)
         datos['ruta_completa'] = ruta_pdf
@@ -534,7 +616,7 @@ class PDFExtractor:
                 todos_los_campos.update(resultado.keys())
             
             # Ordenar campos para consistencia (campos principales primero)
-            campos_principales = ['tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
+            campos_principales = ['tipo_operacion', 'propietario', 'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
                                'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
                                'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
                                'precio', 'tasa_interes_vigente', 'monto_a_negociar',
@@ -587,12 +669,12 @@ def main():
                 extractor = resultado.get('extractor_utilizado', 'Desconocido')
                 extractores_usados[extractor] = extractores_usados.get(extractor, 0) + 1
             
-            print(f"\n🔧 ESTADÍSTICAS DE EXTRACTORES:")
+            print(f"\n[HERRAMIENTA] ESTADÍSTICAS DE EXTRACTORES:")
             for extractor, cantidad in extractores_usados.items():
                 print(f"   {extractor}: {cantidad} documentos")
             
             # Mostrar resultados válidos
-            print(f"\n📊 RESULTADOS VÁLIDOS ({len(resultados_validos)} documentos):")
+            print(f"\n[INFO] RESULTADOS VÁLIDOS ({len(resultados_validos)} documentos):")
             for resultado in resultados_validos:
                 print(f"\n--- {resultado['archivo']} ---")
                 print(f"Tipo: {resultado['tipo_documento']}")
@@ -603,7 +685,7 @@ def main():
             
             # Mostrar documentos desconocidos si los hay
             if desconocidos:
-                print(f"\n⚠️  DOCUMENTOS DESCONOCIDOS ({len(desconocidos)} archivos):")
+                print(f"\n[WARN]  DOCUMENTOS DESCONOCIDOS ({len(desconocidos)} archivos):")
                 for resultado in desconocidos:
                     print(f"   - {resultado['archivo']}")
                 print(f"   Estos archivos no serán incluidos en el CSV de salida.")

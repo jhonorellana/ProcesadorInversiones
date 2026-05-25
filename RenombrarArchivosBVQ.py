@@ -203,7 +203,7 @@ def main():
     print(f"Errores: {resultados['errores']}")
     
     if resultados['renombrados'] > 0:
-        print("\n✅ ARCHIVOS RENOMBRADOS EXITOSAMENTE:")
+        print("\n[OK] ARCHIVOS RENOMBRADOS EXITOSAMENTE:")
         for detalle in resultados['detalles']:
             if detalle['renombrado']:
                 nombre_original = detalle['archivo_original']
@@ -217,7 +217,7 @@ def main():
                 print(f"   {nombre_original} -> {nuevo_nombre}")
     
     if resultados['errores'] > 0:
-        print("\n❌ ERRORES:")
+        print("\n[ERROR] ERRORES:")
         for detalle in resultados['detalles']:
             if not detalle['renombrado']:
                 print(f"   {detalle['archivo_original']} (Operación: {detalle['operacion_no']}, Valor: {detalle['valor_nominal']})")
@@ -228,7 +228,7 @@ def main():
     archivo_reporte = f"Salida_BVQ/reporte_renombrado_bvq_{timestamp}.json"
     renombrador.guardar_reporte(resultados, archivo_reporte)
     
-    print(f"\n🎉 Proceso completado. Revise la carpeta {carpeta_entrada} y el reporte en Salida_BVQ.")
+    print(f"\n[EXITO] Proceso completado. Revise la carpeta {carpeta_entrada} y el reporte en Salida_BVQ.")
 
 if __name__ == "__main__":
     main()

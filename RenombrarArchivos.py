@@ -196,12 +196,12 @@ class RenombradorArchivos:
         print(f"Errores: {resumen['errores']}")
         
         if resumen['archivos_renombrados'] > 0:
-            print(f"\n✅ ARCHIVOS RENOMBRADOS EXITOSAMENTE:")
+            print(f"\n[OK] ARCHIVOS RENOMBRADOS EXITOSAMENTE:")
             for archivo in resumen['archivos_procesados']:
                 print(f"   {archivo['nombre_original']} -> {archivo['nombre_nuevo']}")
         
         if resumen['errores'] > 0:
-            print(f"\n❌ ERRORES:")
+            print(f"\n[ERROR] ERRORES:")
             for error in resumen['errores_detalle']:
                 print(f"   {error['archivo']}: {error['error']}")
         
@@ -209,7 +209,7 @@ class RenombradorArchivos:
 
 def main():
     """Función principal"""
-    print("🔄 RENOMBRADOR DE ARCHIVOS PDF MEJORADO")
+    print("[PROCESANDO] RENOMBRADOR DE ARCHIVOS PDF MEJORADO")
     print("Este programa renombra los archivos PDF agregando número de operación y valor nominal")
     print("Soporta: Liquidaciones BVQ, Notas de Crédito, y Bonos del Estado")
     print("Formato: nombre_original_[operacion_no]_[valor_nominal].pdf")
@@ -242,7 +242,7 @@ def main():
         if len(archivos_pdf) > 5:
             print(f"  ... y {len(archivos_pdf) - 5} archivos más")
     else:
-        print(f"❌ La carpeta {carpeta_entrada} no existe.")
+        print(f"[ERROR] La carpeta {carpeta_entrada} no existe.")
         return
     
     print()
@@ -261,7 +261,7 @@ def main():
     renombrador.mostrar_resumen(resumen)
     renombrador.guardar_reporte(resumen)
     
-    print(f"\n🎉 Proceso completado. Revise la carpeta {carpeta_entrada} y el reporte en Salida.")
+    print(f"\n[EXITO] Proceso completado. Revise la carpeta {carpeta_entrada} y el reporte en Salida.")
 
 if __name__ == "__main__":
     main()
