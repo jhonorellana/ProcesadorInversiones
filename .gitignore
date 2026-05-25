@@ -4,6 +4,7 @@ old/
 SQL/
 entrada/
 Salida/
+docs/
 
 # Archivos de logs
 *.log
