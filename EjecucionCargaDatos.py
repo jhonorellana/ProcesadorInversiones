@@ -8,6 +8,7 @@ import os
 import json
 from datetime import datetime
 import zipfile
+import sys
 
 # ---------------------------------------
 # Carga de configuración
@@ -370,7 +371,7 @@ def ejecutar_script(nombre_script: str) -> None:
     escribir_log(f"Iniciando: {nombre_script}")
     try:
         result = subprocess.run(
-            ["python", nombre_script],
+            [sys.executable, nombre_script],
             check=True,
             capture_output=True,
             text=True,
@@ -507,7 +508,7 @@ def execute_main_procesador() -> None:
 
     try:
         result = subprocess.run(
-            ["python", "MainProcesador.py"],
+            [sys.executable, "MainProcesador.py"],
             check=True,
             capture_output=True,
             text=True,
@@ -552,7 +553,7 @@ def execute_database_loader() -> None:
 
     try:
         result = subprocess.run(
-            ["python", "DatabaseLoader.py"],
+            [sys.executable, "DatabaseLoader.py"],
             check=True,
             capture_output=True,
             text=True,
@@ -597,7 +598,7 @@ def execute_new_database_loader() -> None:
 
     try:
         result = subprocess.run(
-            ["python", "CargadorBDD.py"],
+            [sys.executable, "CargadorBDD.py"],
             check=True,
             capture_output=True,
             text=True,
@@ -706,7 +707,7 @@ def execute_descarga_diaria() -> None:
 
     try:
         result = subprocess.run(
-            ["python", "DescargarArchivos.py"],
+            [sys.executable, "DescargarArchivos.py"],
             check=True,
             capture_output=True,
             text=True,
@@ -902,7 +903,13 @@ def crear_pestana_configuracion(notebook):
     def guardar_configuracion():
         """Guarda la configuración en el archivo config.json"""
         try:
-            config = {
+            # Cargar la configuración actual para no perder otros campos (como 'archivos')
+            try:
+                current_config = cargar_configuracion()
+            except Exception:
+                current_config = {}
+                
+            nueva_config = {
                 "database": {
                     "user": config_vars['database']['user'].get(),
                     "password": config_vars['database']['password'].get(),
@@ -914,15 +921,15 @@ def crear_pestana_configuracion(notebook):
                     "directorioBase": config_vars['paths']['directorioBase'].get(),
                     "carpeta": config_vars['paths']['carpeta'].get()
                 },
-                "archivos": config.get("archivos", {})  # Mantener la configuración de archivos existente
+                "archivos": current_config.get("archivos", {})  # Mantener la configuración de archivos existente
             }
             
             with open('config.json', 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4, ensure_ascii=False)
+                json.dump(nueva_config, f, indent=4, ensure_ascii=False)
             
             # Actualizar la configuración global
             global db_config
-            db_config = config['database']
+            db_config = nueva_config['database']
             
             messagebox.showinfo("Éxito", "Configuración guardada correctamente")
         except Exception as e:

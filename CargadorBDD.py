@@ -367,10 +367,11 @@ def main():
                 mov_sql = """
                 INSERT INTO movimiento_capital (
                     id_tipo_movimiento,
+                    id_persona,
                     id_inversion,
                     id_venta_inversion,
                     id_cuenta_bancaria,
-                    signo,
+                    id_signo,
                     monto,
                     fecha_movimiento,
                     descripcion,
@@ -381,15 +382,16 @@ def main():
                     fecha_creacion,
                     fecha_actualizacion
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
                 )
                 """
                 mov_params = (
                     181,                   # id_tipo_movimiento
+                    id_propietario,        # id_persona
                     id_inversion,          # id_inversion
                     None,                  # id_venta_inversion
                     None,                  # id_cuenta_bancaria
-                    191,                   # signo
+                    191,                   # id_signo
                     capital_invertido,     # monto
                     today_date,            # fecha_movimiento
                     "Compra Nota de Crédito", # descripcion
