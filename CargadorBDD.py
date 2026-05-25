@@ -305,6 +305,63 @@ def main():
                 )
                 
                 cursor.execute(insert_sql, params)
+                # Retrieve generated id_inversion
+                id_inversion = cursor.lastrowid
+
+                # Insert amortization record
+                amort_sql = """
+                INSERT INTO amortizacion (
+                    id_amortizacion,
+                    id_inversion,
+                    numero_cuota,
+                    fecha_pago,
+                    interes,
+                    capital,
+                    descuento,
+                    total,
+                    int_parcial,
+                    retencion,
+                    id_estado_amortizacion,
+                    pagada,
+                    activo,
+                    eliminado,
+                    fecha_creacion,
+                    fecha_actualizacion
+                ) VALUES (
+                    NULL,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    CURRENT_TIMESTAMP(),
+                    CURRENT_TIMESTAMP()
+                )
+                """
+                amort_params = (
+                    id_inversion,
+                    1,                     # numero_cuota
+                    '2034-12-31',          # fecha_pago placeholder
+                    0,                     # interes
+                    capital_invertido,     # capital
+                    0,                     # descuento
+                    capital_invertido,     # total
+                    0,                     # int_parcial
+                    0,                     # retencion
+                    134,                   # id_estado_amortizacion
+                    0,                     # pagada
+                    1,                     # activo
+                    0                      # eliminado
+                )
+                cursor.execute(amort_sql, amort_params)
                 print(f"  [OK] Successfully inserted record into inversion table.")
                 records_inserted += 1
                 
