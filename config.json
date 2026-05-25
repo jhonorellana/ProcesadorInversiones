@@ -1,0 +1,47 @@
+{
+    "database": {
+        "user": "root",
+        "password": "",
+        "host": "localhost",
+        "database": "inversion",
+        "raise_on_warnings": true
+    },
+    "paths": {
+        "directorioBase": "C:\\Users\\super\\DATOS\\004. DatosBVQ\\",
+        "carpeta": "007_CotizacionesHistoricas"
+    },
+    "archivos": {
+        "acciones": {
+            "nombre": "acciones",
+            "extension": ".xls"
+        },
+        "bonos": {
+            "nombre": "bonos",
+            "extension": ".xls"
+        },
+        "facturas": {
+            "nombre": "facturas-comerciales",
+            "extension": ".xls"
+        },
+        "genericos": {
+            "nombre": "valores-genericos",
+            "extension": ".xls"
+        },
+        "obligaciones": {
+            "nombre": "obligaciones",
+            "extension": ".xls"
+        },
+        "papeles": {
+            "nombre": "papel-comercial",
+            "extension": ".xls"
+        },
+        "titularizaciones": {
+            "nombre": "titularizaciones",
+            "extension": ".xls"
+        },
+        "dividendos": {
+            "nombre": "dividendos",
+            "extension": ".xls"
+        }
+    }
+}

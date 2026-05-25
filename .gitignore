@@ -1,0 +1,31 @@
+# General Python ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files
+.env
+.env.*
+
+# Logs and temporary data
+log_ejecucion.txt
+*.log
+*.tmp
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.swp
+
+# Build artifacts (if any)
+*.egg-info/
+build/
+Dist/
+
+# Data output directories (if not needed in repo)
+Salida/
+Entrada/
+
+# OS generated files
+.DS_Store
+Thumbs.db
