@@ -370,7 +370,7 @@ def main():
                     id_inversion,
                     id_venta_inversion,
                     id_cuenta_bancaria,
-                    signo,
+                    id_persona,
                     monto,
                     fecha_movimiento,
                     descripcion,
@@ -389,7 +389,7 @@ def main():
                     id_inversion,          # id_inversion
                     None,                  # id_venta_inversion
                     None,                  # id_cuenta_bancaria
-                    191,                   # signo
+                    id_propietario,        # id_persona
                     capital_invertido,     # monto
                     today_date,            # fecha_movimiento
                     "Compra Nota de Crédito", # descripcion
