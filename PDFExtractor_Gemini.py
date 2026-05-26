@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # 1. Configura tu API Key
-genai.configure(api_key="AIzaSyCm4c_tjW7tv21bCcxi0fVDNv_ePopYa3k")
+genai.configure(api_key="")
 
 # 2. Configuración del modelo
 model = genai.GenerativeModel('models/gemini-flash-latest') # Flash es más rápido y económico para OCR
