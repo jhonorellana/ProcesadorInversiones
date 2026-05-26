@@ -14,8 +14,11 @@ from typing import Dict, List, Any, Optional
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+from config_utils import config_manager
+
 # 1. Configura tu API Key
-genai.configure(api_key="")
+api_key = os.environ.get("GEMINI_API_KEY") or config_manager.get_gemini_api_key()
+genai.configure(api_key=api_key)
 
 # 2. Configuración del modelo
 model = genai.GenerativeModel('models/gemini-flash-latest') # Flash es más rápido y económico para OCR

@@ -26,6 +26,10 @@ class ConfigManager:
         """Obtiene la configuración para un tipo de archivo específico."""
         return self._config['archivos'].get(file_type, {})
     
+    def get_gemini_api_key(self) -> str:
+        """Obtiene la API Key de Gemini."""
+        return self._config.get('gemini', {}).get('api_key', '')
+    
     def get_file_path(self, file_type: str) -> str:
         """Genera la ruta completa para un archivo basado en su tipo y la fecha actual."""
         import time
