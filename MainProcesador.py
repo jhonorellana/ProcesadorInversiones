@@ -328,6 +328,37 @@ class MainProcesador:
             self.resultados_globales['errores'].append(error_msg)
             return {'exitoso': False, 'error': error_msg}
     
+    def extraer_datos_factura(self, ruta_pdf: str) -> Dict[str, Any]:
+        """Extrae el propietario y el número de operación de una factura de bolsa"""
+        try:
+            import pdfplumber
+            with pdfplumber.open(ruta_pdf) as pdf:
+                texto = pdf.pages[0].extract_text() or ""
+        except Exception as e:
+            logger.warning(f"No se pudo leer factura {ruta_pdf}: {e}")
+            return {}
+
+        # Propietario: "Razón Social / Nombres y Apellidos: [OWNER] RUC/CI:" (BVG)
+        #              "Razon Social: [OWNER] CI/RUC/PAS:" (BVQ)
+        owner_match = re.search(
+            r'Raz(?:ó|o)n\s+Social\s*(?:/\s*Nombres\s*y\s*Apellidos)?\s*:\s*(.*?)\s*(?:RUC/CI|CI/RUC/PAS):',
+            texto, re.IGNORECASE
+        )
+        propietario = owner_match.group(1).strip() if owner_match else ''
+
+        # Número de operación: BVG "OPE:368081", BVQ "BOLSA NO. 00012089" o "LIQ BVQ: ... 12089"
+        ope_match = re.search(r'OPE\s*:\s*(\d+)', texto, re.IGNORECASE)
+        if not ope_match:
+            ope_match = re.search(r'BOLSA\s+N[Oº°]\s*\.?\s*(\d+)', texto, re.IGNORECASE)
+        if not ope_match:
+            ope_match = re.search(r'LIQ\s+BVQ\s*:[^\d]*(\d{5,})', texto, re.IGNORECASE)
+
+        operacion_no = ''
+        if ope_match:
+            operacion_no = str(int(ope_match.group(1).strip()))  # normalizar quitando ceros
+
+        return {'propietario': propietario, 'operacion_no': operacion_no}
+
     def paso_3_extraer_datos(self) -> Dict[str, Any]:
         """Paso 3: Extraer datos de los PDF"""
         print("\n" + "="*60)
@@ -358,9 +389,34 @@ class MainProcesador:
                     'archivo_salida': ''
                 }
             
-            # Aplicar filtrado centralizado
-            archivos_filtrados, archivos_excluidos = self.filtrar_archivos_pdf(archivos_pdf)
+            # Separar facturas de liquidaciones
+            archivos_facturas = [f for f in archivos_pdf if f.startswith('4. FACTURA DE BOLSA')]
+            archivos_liquidaciones = [f for f in archivos_pdf if not f.startswith('4. FACTURA DE BOLSA')]
+
+            # Aplicar filtrado centralizado solo a liquidaciones
+            archivos_filtrados, archivos_excluidos = self.filtrar_archivos_pdf(archivos_liquidaciones)
             
+            # ── Paso A: leer todas las facturas para construir el mapa propietario ──
+            print(f"\nLeyendo {len(archivos_facturas)} facturas para extraer propietarios...")
+            propietarios_por_operacion = {}   # operacion_no -> propietario
+            facturas_por_operacion = {}       # operacion_no -> [{archivo, ruta}]
+            for factura in archivos_facturas:
+                ruta_factura = os.path.join(self.carpeta_entrada, factura)
+                datos_factura = self.extraer_datos_factura(ruta_factura)
+                ope_no = datos_factura.get('operacion_no', '')
+                propietario = datos_factura.get('propietario', '')
+                if ope_no:
+                    propietarios_por_operacion[ope_no] = propietario
+                    facturas_por_operacion.setdefault(ope_no, []).append({
+                        'archivo': factura, 'ruta': ruta_factura
+                    })
+                    print(f"   Factura {factura} -> Ope: {ope_no}, Propietario: {propietario}")
+                else:
+                    logger.warning(f"No se pudo identificar operación en factura: {factura}")
+
+            # ── Paso B: renombrar facturas con el número de operación ──
+            self._renombrar_facturas(facturas_por_operacion)
+
             if not archivos_filtrados:
                 print("   No se encontraron archivos PDF válidos para extraer datos")
                 return {
@@ -371,7 +427,7 @@ class MainProcesador:
                     'archivos_excluidos': archivos_excluidos
                 }
             
-            print(f"Detectando origen y procesando {len(archivos_filtrados)} archivos PDF válidos...")
+            print(f"\nDetectando origen y procesando {len(archivos_filtrados)} archivos PDF válidos...")
             
             resultados_bvg = []
             resultados_quito = []
@@ -384,6 +440,13 @@ class MainProcesador:
                     print(f"   Procesando con BVG (Guayaquil): {archivo}")
                     datos = extractor_bvg.procesar_pdf(ruta_completa)
                     if datos:
+                        # Inyectar propietario desde el mapa de facturas
+                        ope_raw = datos.get('operacion_no', '') or ''
+                        try:
+                            ope_no_norm = str(int(ope_raw)) if ope_raw else ''
+                        except ValueError:
+                            ope_no_norm = ope_raw
+                        datos['propietario'] = propietarios_por_operacion.get(ope_no_norm, '')
                         resultados_bvg.append(datos)
                 else:
                     print(f"   Procesando con Gemini (Quito): {archivo}")
@@ -395,6 +458,9 @@ class MainProcesador:
                         datos['fecha_procesamiento'] = datetime.now().isoformat()
                         datos['tamaño_archivo'] = os.path.getsize(ruta_completa)
                         datos['extractor_utilizado'] = 'Gemini (Quito)'
+                        # Inyectar propietario: la clave puede ser "12089" (sin guión VRF)
+                        ope_quito = str(datos.get('operacion_no', '') or '').split('-')[0].strip()
+                        datos['propietario'] = propietarios_por_operacion.get(ope_quito, '')
                         resultados_quito.append(datos)
             
             total_extraidos = len(resultados_bvg) + len(resultados_quito)
@@ -431,7 +497,7 @@ class MainProcesador:
                 else:
                     archivo_salida_quito = ""
                 
-                # Guardar archivo recopilatorio csv con los campos que teníamos en un principio
+                # Guardar archivo recopilatorio con los campos originales
                 archivo_salida_recopilatorio = os.path.join(self.carpeta_salida, f"resultados_pdf_{timestamp}.csv")
                 self.guardar_resultados_recopilatorio(resultados_bvg, resultados_quito, archivo_salida_recopilatorio)
                 archivos_salida.append(archivo_salida_recopilatorio)
@@ -445,7 +511,7 @@ class MainProcesador:
                     'archivo_salida': " y ".join(archivos_salida),
                     'tipos_documento': tipos,
                     'archivos_excluidos': archivos_excluidos,
-                    'resultados': resultados_bvg + resultados_quito  # Combinar resultados para el renombrado
+                    'resultados': resultados_bvg + resultados_quito
                 }
             else:
                 print("[WARN]  No se extrajeron datos de los archivos PDF")
@@ -460,6 +526,37 @@ class MainProcesador:
             logger.error(error_msg)
             self.resultados_globales['errores'].append(error_msg)
             return {'exitoso': False, 'error': error_msg}
+
+    def _renombrar_facturas(self, facturas_por_operacion: dict):
+        """Renombra las facturas extraídas con el número de operación correspondiente"""
+        for ope_no, facturas in facturas_por_operacion.items():
+            for idx, info in enumerate(facturas):
+                ruta_original = info['ruta']
+                archivo_original = info['archivo']
+                directorio = os.path.dirname(ruta_original)
+
+                # Construir nuevo nombre: "4. FACTURA DE BOLSA[_N]_[operacion_no].pdf"
+                sufijo = f"_{idx}" if idx > 0 else ""
+                nuevo_nombre = f"4. FACTURA DE BOLSA{sufijo}_{ope_no}.pdf"
+                ruta_nueva = os.path.join(directorio, nuevo_nombre)
+
+                if ruta_original == ruta_nueva:
+                    continue
+                # Evitar colisiones
+                contador = 1
+                while os.path.exists(ruta_nueva):
+                    nuevo_nombre = f"4. FACTURA DE BOLSA{sufijo}_{ope_no}_{contador}.pdf"
+                    ruta_nueva = os.path.join(directorio, nuevo_nombre)
+                    contador += 1
+                try:
+                    os.rename(ruta_original, ruta_nueva)
+                    logger.info(f"Factura renombrada: {archivo_original} -> {nuevo_nombre}")
+                    print(f"   [OK] Factura renombrada: {archivo_original} -> {nuevo_nombre}")
+                    # Actualizar ruta para consistencia interna
+                    info['ruta'] = ruta_nueva
+                    info['archivo'] = nuevo_nombre
+                except Exception as e:
+                    logger.error(f"Error renombrando factura {archivo_original}: {e}")
             
     def guardar_resultados_recopilatorio(self, resultados_bvg: list, resultados_quito: list, archivo_salida: str):
         """Genera un archivo CSV consolidado con los 22 campos del extractor original para ambas bolsas"""
@@ -479,6 +576,8 @@ class MainProcesador:
                     continue
                 # Mapear campos del extractor de Quito a los del extractor original
                 r_mapped = {
+                    'tipo_operacion': r.get('tipo_operacion', ''),
+                    'propietario': r.get('propietario', ''),
                     'tipo_documento': r.get('tipo_documento', ''),
                     'operacion_no': r.get('operacion_no', ''),
                     'titulo_valor': r.get('titulo_valor', ''),
@@ -509,8 +608,9 @@ class MainProcesador:
                 logger.warning("No hay registros válidos para guardar en el recopilatorio")
                 return
                 
-            # Cabeceras del extractor original + archivo
+            # Cabeceras: tipo_operacion y propietario primero, luego los 22 campos originales + archivo
             encabezados = [
+                'tipo_operacion', 'propietario',
                 'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
                 'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
                 'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
