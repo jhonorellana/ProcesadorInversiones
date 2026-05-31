@@ -101,6 +101,37 @@ class PDFExtractor:
         # Mantener el punto decimal si existe
         return valor_limpio
         
+    def formatear_fecha_yyyy_mm_dd(self, fecha_str: str) -> str:
+        """Convierte cualquier formato de fecha común a YYYY-MM-DD (con o sin hora)"""
+        if not fecha_str:
+            return ""
+        fecha_str = fecha_str.strip()
+        
+        # Intentar separar fecha de hora
+        partes = fecha_str.split()
+        parte_fecha = partes[0]
+        parte_hora = " " + partes[1] if len(partes) > 1 else ""
+        
+        # Reemplazar diagonales por guiones
+        parte_fecha = parte_fecha.replace('/', '-')
+        
+        # Formatos como DD-MM-YYYY o DD-MM-YY
+        match = re.match(r'^(\d{1,2})-(\d{1,2})-(\d{2,4})$', parte_fecha)
+        if match:
+            d, m, y = match.groups()
+            if len(y) == 2:
+                # Asumir siglo 20 o 21
+                y = "20" + y if int(y) < 50 else "19" + y
+            return f"{y}-{m.zfill(2)}-{d.zfill(2)}{parte_hora}"
+            
+        # Formatos como YYYY-MM-DD
+        match = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', parte_fecha)
+        if match:
+            y, m, d = match.groups()
+            return f"{y}-{m.zfill(2)}-{d.zfill(2)}{parte_hora}"
+            
+        return fecha_str
+        
     def extraer_texto_pdf(self, ruta_pdf: str) -> str:
         """Extrae todo el texto de un archivo PDF"""
         texto = ""
@@ -123,159 +154,12 @@ class PDFExtractor:
         
         return texto
     
-    def extraer_datos_nota_credito(self, texto: str) -> Dict[str, Any]:
-        """Extrae datos específicos de una nota de crédito"""
+    def extraer_datos_bvg_comun(self, texto: str, tipo_doc: str) -> Dict[str, Any]:
+        """Extrae de manera unificada todos los campos de un PDF de BVG"""
         datos = {
             'tipo_operacion': '',
             'propietario': '',
-            'tipo_documento': 'NOTA_CREDITO',
-            'operacion_no': '',
-            'titulo_valor': '',
-            'emisor': '',
-            'valor_nominal': '',
-            'emision_titulo': '',
-            'vencimiento_titulo': '',
-            'codigo_vector_precio': '',
-            'rend_nominal': '',
-            'rend_efectivo': '',
-            'precio': '',
-            'tasa_interes_vigente': '',
-            'monto_a_negociar': '',
-            'valor_efectivo': '',
-            'valor_interes': '',
-            'total_desembolso': '',
-            'comision_bolsa': '',
-            'comision_operador': '',
-            'total_comisiones': '',
-            'total_comprador_neto': '',
-            'precio_neto': ''
-        }
-        
-        # Patrones de búsqueda actualizados según los campos solicitados
-        patrones = {
-            'operacion_no': r'BVG\s+(\d+)',
-            'titulo_valor': r'Título valor[:\s]*([A-Za-z0-9\s\(\)\-\.]+)',
-            'emisor': '',
-            'valor_nominal': r'Valor nominal[:\s]*\$\s*([\d,\.]+)',
-            'emision_titulo': r'Emisión de título[:\s]*([A-Za-z0-9\s\-\./]+)',
-            'vencimiento_titulo': r'Vencimiento título[:\s]*([A-Za-z0-9\s\-\./]+)',
-            'codigo_vector_precio': r'Código vector precio[:\s]*([A-Z\s]+)',
-            'rend_nominal': r'Rend\.? Nominal[:\s]*([\d,\.%]+)',
-            'rend_efectivo': r'Rend\.? Efectivo[:\s]*([\d,\.%]+)',
-            'precio': r'Precio[:\s]*([\d,\.]+)',
-            'tasa_interes_vigente': r'Tasa interés vigente[:\s]*([\d,\.%]+)',
-            'monto_a_negociar': r'Monto a negociar[:\s]*\$\s*([\d,\.]+)',
-            'valor_efectivo': r'\(A\)VALOR EFECTIVO\s+([\d,\.]+)',
-            'valor_interes': r'\(B\) VALOR INTERÉS\s+([\d,\.]*)',
-            'total_desembolso': r'TOTAL DE DESEMBOLSO\s+([\d,\.]+)',
-            'comision_bolsa': r'\(C\) BOLSA\s+[\d\.%]+\s+([\d,\.]+)',
-            'comision_operador': r'\(D\) OPERADOR\s+[\d\.%]+\s+([\d,\.]+)',
-            'total_comisiones': r'TOTAL DE COMISIONES\s+([\d,\.]+)',
-            'total_comprador_neto': r'TOTAL COMPRADOR NETO[:\s]*\$?\s*([\d,\.]+)',
-            'precio_neto': r'PRECIO NETO[:\s]*([\d,\.]+)'
-        }
-        
-        for campo, patron in patrones.items():
-            coincidencia = re.search(patron, texto, re.IGNORECASE)
-            if coincidencia and coincidencia.lastindex is not None and coincidencia.lastindex >= 1:
-                valor = coincidencia.group(1).strip()
-                
-                # Limpiar saltos de línea específicamente para titulo_valor
-                if campo == 'titulo_valor':
-                    valor = valor.replace('\n', ' ').replace('\r', '').strip()
-                # Limpiar valores numéricos
-                elif campo in ['valor_nominal', 'rend_nominal', 'rend_efectivo', 'precio', 
-                             'tasa_interes_vigente', 'monto_a_negociar', 'valor_efectivo', 
-                             'valor_interes', 'total_desembolso', 'comision_bolsa', 
-                             'comision_operador', 'total_comisiones', 'total_comprador_neto', 
-                             'precio_neto', 'numero_titulos']:
-                    valor = self.limpiar_valor_numerico(valor)
-                
-                datos[campo] = valor
-        
-        # Extraer información adicional usando análisis por líneas
-        lineas = texto.split('\n')
-        
-        for i, linea in enumerate(lineas):
-            linea_limpia = linea.strip()
-            
-            # Emisor (línea siguiente a "Emisor:")
-            if 'Emisor:' in linea and i + 1 < len(lineas):
-                siguiente_linea = lineas[i + 1].strip()
-                if siguiente_linea and 'SERVICIO DE RENTAS INTERNAS' in siguiente_linea:
-                    datos['emisor'] = 'SERVICIO DE RENTAS INTERNAS'
-                elif siguiente_linea and 'Sector económico:' not in siguiente_linea and siguiente_linea:
-                    datos['emisor'] = siguiente_linea
-            
-            # Extraer campos que están en la misma línea
-            if 'Emisión de título:' in linea:
-                partes = linea.split('Emisión de título:')
-                if len(partes) > 1:
-                    valor = partes[1].strip()
-                    # Limpiar el valor para que no incluya Vencimiento título
-                    if 'Vencimiento título:' in valor:
-                        valor = valor.split('Vencimiento título:')[0].strip()
-                    if valor and valor != 'Desmaterializado: SI Derecho:':
-                        datos['emision_titulo'] = valor
-                    else:
-                        datos['emision_titulo'] = ''
-            
-            if 'Vencimiento título:' in linea:
-                partes = linea.split('Vencimiento título:')
-                if len(partes) > 1:
-                    valor = partes[1].strip()
-                    # Limpiar para obtener solo el vencimiento
-                    if ':' in valor and not valor.startswith('Desmaterializado'):
-                        datos['vencimiento_titulo'] = valor
-                    elif valor.startswith('Desmaterializado'):
-                        datos['vencimiento_titulo'] = ''
-                    else:
-                        datos['vencimiento_titulo'] = valor
-            
-            # Rendimientos - buscar valores numéricos específicos
-            if 'Rend. Nominal:' in linea:
-                # Buscar en la misma línea o siguientes
-                match = re.search(r'Rend\.? Nominal[:\s]*([\d,\.%]+)', linea)
-                if match:
-                    datos['rend_nominal'] = match.group(1).strip()
-                else:
-                    # Buscar en líneas siguientes
-                    for j in range(i + 1, min(i + 3, len(lineas))):
-                        if re.search(r'^[\d,\.%]+$', lineas[j].strip()):
-                            datos['rend_nominal'] = lineas[j].strip()
-                            break
-            
-            if 'Rend. Efectivo:' in linea:
-                # Buscar en la misma línea o siguientes
-                match = re.search(r'Rend\.? Efectivo[:\s]*([\d,\.%]+)', linea)
-                if match:
-                    datos['rend_efectivo'] = match.group(1).strip()
-                else:
-                    # Buscar en líneas siguientes
-                    for j in range(i + 1, min(i + 3, len(lineas))):
-                        if re.search(r'^[\d,\.%]+$', lineas[j].strip()):
-                            datos['rend_efectivo'] = lineas[j].strip()
-                            break
-            
-            # Tasa interés vigente
-            if 'Tasa interés vigente:' in linea:
-                match = re.search(r'Tasa interés vigente[:\s]*([\d,\.%]+)', linea)
-                if match:
-                    datos['tasa_interes_vigente'] = match.group(1).strip()
-        
-        # Extraer número de títulos adicional
-        num_titulos_match = re.search(r'Número de títulos[:\s]*(\d+)', texto)
-        if num_titulos_match:
-            datos['numero_titulos'] = num_titulos_match.group(1).strip()
-        
-        return datos
-    
-    def extraer_datos_bono_estado(self, texto: str) -> Dict[str, Any]:
-        """Extrae datos específicos de Bonos del Estado de BVG"""
-        datos = {
-            'tipo_operacion': '',
-            'propietario': '',
-            'tipo_documento': 'BONO_ESTADO',
+            'tipo_documento': tipo_doc,
             'operacion_no': '',
             'titulo_valor': '',
             'emisor': '',
@@ -296,166 +180,241 @@ class PDFExtractor:
             'total_comisiones': '',
             'total_comprador_neto': '',
             'precio_neto': '',
-            'numero_titulos': ''
+            'numero_titulos': '',
+            'factura_no': '',
+            'mercado': '',
+            'fecha_negociacion': '',
+            'hora_negociacion': '',
+            'casa_valores': '',
+            'ruc_casa_valores': '',
+            'direccion_casa_valores': '',
+            'operador_valores': '',
+            'saldo_por_amortizar': '',
+            'sector_economico': '',
+            'calificacion_riesgo': '',
+            'resolucion_scvs': '',
+            'catastro_mercado_valores': '',
+            'codigo_isin': '',
+            'tipo_mercado': '',
+            'plazo_por_vencer': '',
+            'plazo_venc_real': '',
+            'base_dias': '',
+            'precio_sucio': '',
+            'cupon': '',
+            'inicio_cupon': '',
+            'vcto_cupon': '',
+            'tasa_interes_futura': '',
+            'dias_interes': '',
+            'tipo_tasa': '',
+            'valor_garantia': '',
+            'plazo_garantia': '',
+            'cump_garantia': '',
+            'fecha_valor': '',
+            'deposito_compensacion': '',
+            'valor_efectivo_recompra': '',
+            'factor_calculo': '',
+            'cruzada': '',
+            'retenciones_fuente_bvg': '',
+            'retenciones_fuente_cv': '',
+            'total_retenciones': '',
+            'subtotales': '',
+            'iva': '',
+            'total_comprador_bruto': ''
         }
-        
-        # Extraer información usando análisis por líneas
-        lineas = texto.split('\n')
-        
-        for i, linea in enumerate(lineas):
-            linea_limpia = linea.strip()
+
+        # Extraer número de operación de la cabecera
+        match_cabecera = re.search(r'BOLSA DE VALORES DE GUAYAQUIL S.A. BVG\s+(\d+)', texto)
+        if match_cabecera:
+            datos['operacion_no'] = match_cabecera.group(1).strip()
             
-            # Operación No - buscar en la primera línea con BVG
-            if 'BOLSA DE VALORES DE GUAYAQUIL S.A. BVG' in linea:
-                # Extraer el número que sigue a BVG
-                match = re.search(r'BVG (\d+)', linea)
-                if match:
-                    datos['operacion_no'] = match.group(1).strip()
-            
-            # Título valor
-            if 'Título valor:' in linea:
-                # Formato: Título valor: BONO DEL ESTADO CDF-RES-2024-0004 JUBILA (2)- Clase:SC- Serie:UNICA
-                match = re.search(r'Título valor: (BONO DEL ESTADO[^-]+)', linea)
-                if match:
-                    datos['titulo_valor'] = match.group(1).strip()
-                else:
-                    # Alternativa: extraer después de "Título valor:"
-                    partes = linea.split('Título valor:')
-                    if len(partes) > 1:
-                        titulo = partes[1].strip()
-                        if 'Clase:' in titulo:
-                            titulo = titulo.split('Clase:')[0].strip()
-                        datos['titulo_valor'] = titulo
-            
-            # Emisor
-            if 'Emisor:' in linea:
-                # Buscar en la siguiente línea
-                if i + 1 < len(lineas):
-                    siguiente = lineas[i + 1].strip()
-                    if siguiente and 'Sector económico:' not in siguiente:
-                        datos['emisor'] = siguiente
-            
-            # Número de títulos y Valor nominal
-            if 'Número de títulos:' in linea:
-                # Formato: Número de títulos: 3,610,000 Valor nominal: $ 36,100.00 Saldo por amortizar: 100.00 %
-                match = re.search(r'Número de títulos: ([\d,\.]+) Valor nominal: \$ ([\d,\.]+)', linea)
-                if match:
-                    datos['numero_titulos'] = self.limpiar_valor_numerico(match.group(1).strip())
-                    datos['valor_nominal'] = self.limpiar_valor_numerico(match.group(2).strip())
-            
-            # Valor efectivo (en sección Totales)
-            if '(A)VALOR EFECTIVO' in linea:
-                # Formato: (A)VALOR EFECTIVO 31,780.52
-                match = re.search(r'\(A\)VALOR EFECTIVO ([\d,\.]+)', linea)
-                if match:
-                    datos['valor_efectivo'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Valor interés
-            if '(B) VALOR INTERÉS' in linea:
-                # Formato: (B) VALOR INTERÉS 24.91
-                match = re.search(r'\(B\) VALOR INTERÉS ([\d,\.]+)', linea)
-                if match:
-                    datos['valor_interes'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Total desembolso
-            if 'TOTAL DE DESEMBOLSO' in linea:
-                # Formato: TOTAL DE DESEMBOLSO 31,805.43
-                match = re.search(r'TOTAL DE DESEMBOLSO ([\d,\.]+)', linea)
-                if match:
-                    datos['total_desembolso'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Comisiones
-            if '(C) BOLSA' in linea:
-                # Formato: (C) BOLSA 0.05000 15.890.21
-                match = re.search(r'\(C\) BOLSA [\d,\.]+ ([\d,\.]+)', linea)
-                if match:
-                    datos['comision_bolsa'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            if '(D) OPERADOR' in linea:
-                # Formato: (D) OPERADOR 0.10000 31.78
-                match = re.search(r'\(D\) OPERADOR [\d,\.]+ ([\d,\.]+)', linea)
-                if match:
-                    datos['comision_operador'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Total comisiones
-            if 'TOTAL DE COMISIONES' in linea:
-                # Formato: TOTAL DE COMISIONES 47.67
-                match = re.search(r'TOTAL DE COMISIONES ([\d,\.]+)', linea)
-                if match:
-                    datos['total_comisiones'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Total comprador neto
-            if 'TOTAL COMPRADOR NETO:' in linea:
-                # Formato: TOTAL COMPRADOR NETO: 31,853.10 (A+B+C+D-E-F)
-                match = re.search(r'TOTAL COMPRADOR NETO: ([\d,\.]+)', linea)
-                if match:
-                    datos['total_comprador_neto'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Datos adicionales del bono
-            if 'Emisión de título:' in linea:
-                # Formato: Emisión de título: 25/07/2024 Vencimiento título: 25/07/2033 Desmaterializado: SI Derecho:
-                match = re.search(r'Emisión de título: ([\d/]+)', linea)
-                if match:
-                    datos['emision_titulo'] = match.group(1).strip()
-            
-            if 'Vencimiento título:' in linea:
-                # Formato: Vencimiento título: 25/07/2033 Desmaterializado: SI Derecho:
-                match = re.search(r'Vencimiento título: ([\d/]+)', linea)
-                if match:
-                    datos['vencimiento_titulo'] = match.group(1).strip()
-            
-            # Código vector precio
-            if 'Código vector precio :' in linea:
-                # Formato: Código vector precio : 045040100401330725
-                match = re.search(r'Código vector precio : ([A-Z0-9]+)', linea)
-                if match:
-                    datos['codigo_vector_precio'] = match.group(1).strip()
-            
-            # Rendimientos
-            if 'Rend. Nominal:' in linea:
-                # Formato: Rend. Nominal: 8.90000000
-                match = re.search(r'Rend\.? Nominal: ([\d,\.%]+)', linea)
-                if match:
-                    datos['rend_nominal'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            if 'Rend. Efectivo:' in linea:
-                # Formato: Rend. Efectivo: 9.27217270
-                match = re.search(r'Rend\.? Efectivo: ([\d,\.%]+)', linea)
-                if match:
-                    datos['rend_efectivo'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Precio
-            if 'Precio:' in linea and 'Precio sucio' not in linea:
-                # Buscar en la siguiente línea
-                if i + 1 < len(lineas):
-                    siguiente = lineas[i + 1].strip()
-                    # Formato: 88.03468709%
-                    match = re.search(r'([\d,\.%]+)%', siguiente)
-                    if match:
-                        datos['precio'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Tasa interés vigente
-            if 'Tasa interés vigente:' in linea:
-                # Formato: Tasa interés vigente: 6.210000
-                match = re.search(r'Tasa interés vigente: ([\d,\.%]+)', linea)
-                if match:
-                    datos['tasa_interes_vigente'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Monto a negociar
-            if 'Monto a negociar:' in linea:
-                # Formato: Monto a negociar: $ 36,100.00
-                match = re.search(r'Monto a negociar: \$ ([\d,\.%]+)', linea)
-                if match:
-                    datos['monto_a_negociar'] = self.limpiar_valor_numerico(match.group(1).strip())
-            
-            # Precio neto
-            if 'PRECIO NETO:' in linea:
-                # Formato: PRECIO NETO: 88.2357
-                match = re.search(r'PRECIO NETO: ([\d,\.%]+)', linea)
-                if match:
-                    datos['precio_neto'] = self.limpiar_valor_numerico(match.group(1).strip())
-        
+        # Aplicar expresiones regulares para cada campo
+        def aplicar_regex(patron, string, flags=re.IGNORECASE):
+            match = re.search(patron, string, flags)
+            return match.groups() if match else None
+
+        # Mercado y Postura
+        res = aplicar_regex(r'Mercado[ \t]*:[ \t]*(.*?)[ \t]+Postura[ \t]*:[ \t]*([A-Z\s]+)', texto)
+        if res:
+            datos['mercado'] = res[0].strip()
+            datos['tipo_operacion'] = res[1].strip()
+
+        # Fecha y Hora de negociación
+        res = aplicar_regex(r'Fecha de negociaci[óo]n[ \t]*:[ \t]*([\d/]+)[ \t]+Hora de negociaci[óo]n[ \t]*:[ \t]*([\d:]+)', texto)
+        if res:
+            datos['fecha_negociacion'] = res[0].strip()
+            datos['hora_negociacion'] = res[1].strip()
+
+        # Factura No.
+        res = aplicar_regex(r'Factura No\.[ \t]*:[ \t]*(\d+)', texto)
+        if res:
+            datos['factura_no'] = res[0].strip()
+
+        # Casa de Valores y RUC
+        res = aplicar_regex(r'Casa de valores[ \t]*:[ \t]*(.*?)[ \t]+R\.?U\.?C\.?[ \t]*:?[ \t]*(\d+)', texto)
+        if res:
+            datos['casa_valores'] = res[0].strip()
+            datos['ruc_casa_valores'] = res[1].strip()
+
+        # Dirección de la Casa de Valores
+        res = aplicar_regex(r'Direcci[óo]n[ \t]*:[ \t]*(.*?)(?=\n\s*Operador de valores:|\n\s*Emisor - T|$)', texto, re.DOTALL)
+        if res:
+            datos['direccion_casa_valores'] = res[0].replace('\n', ' ').strip()
+
+        # Operador de Valores
+        res = aplicar_regex(r'Operador de valores[ \t]*:[ \t]*([^\n\r]+)', texto)
+        if res:
+            datos['operador_valores'] = res[0].strip()
+
+        # Título Valor
+        res = aplicar_regex(r'T[íi]tulo valor[ \t]*:[ \t]*(.*?)(?=\n\s*N[úu]mero de t[íi]tulos:|\n\s*Emisor:|$)', texto, re.DOTALL)
+        if res:
+            datos['titulo_valor'] = res[0].replace('\n', ' ').strip()
+
+        # Número de títulos, Valor nominal y Saldo por amortizar
+        res = aplicar_regex(r'N[úu]mero de t[íi]tulos[ \t]*:[ \t]*([\d,\.]+)[ \t]+Valor nominal[ \t]*:[ \t]*\$[ \t]*([\d,\.]+)(?:[ \t]+Saldo por amortizar[ \t]*:[ \t]*([\d,\.\%]*))?', texto)
+        if res:
+            datos['numero_titulos'] = self.limpiar_valor_numerico(res[0])
+            datos['valor_nominal'] = self.limpiar_valor_numerico(res[1])
+            if len(res) > 2 and res[2]:
+                datos['saldo_por_amortizar'] = self.limpiar_valor_numerico(res[2])
+
+        # Emisor
+        res = aplicar_regex(r'Emisor[ \t]*:[ \t]*(.*?)(?=\n\s*Sector econ[óo]mico:|$)', texto)
+        if res:
+            datos['emisor'] = res[0].strip()
+
+        # Sector Económico
+        res = aplicar_regex(r'Sector econ[óo]mico[ \t]*:[ \t]*([^\n\r]+)', texto)
+        if res:
+            datos['sector_economico'] = res[0].strip()
+
+        # Emisión, Vencimiento, Desmaterializado, Derecho
+        res = aplicar_regex(r'Emisi[óo]n de t[íi]tulo[ \t]*:[ \t]*([\d/]*)[ \t]*Vencimiento t[íi]tulo[ \t]*:[ \t]*([\d/]*)[ \t]*Desmaterializado[ \t]*:[ \t]*([A-Z]*)[ \t]*Derecho[ \t]*:[ \t]*([A-Za-z0-9[ \t]]*)', texto)
+        if res:
+            datos['emision_titulo'] = res[0].strip() if res[0] else ''
+            datos['vencimiento_titulo'] = res[1].strip() if res[1] else ''
+            datos['desmaterializado'] = res[2].strip() if res[2] else ''
+            datos['derecho'] = res[3].strip() if res[3] else ''
+
+        # Calificación de riesgo
+        res = aplicar_regex(r'Calificaci[óo]n de riesgo[ \t]*:[ \t]*(.*?)(?=\n\s*Resoluci[óo]n SCVS[ \t]*:|\n\s*C[óo]digo vector precio[ \t]*:|$)', texto, re.DOTALL)
+        if res:
+            datos['calificacion_riesgo'] = res[0].replace('\n', ' ').strip()
+
+        # Resolución SCVS y Catastro
+        res = aplicar_regex(r'Resoluci[óo]n SCVS[ \t]*:[ \t]*(.*?)[ \t]+Catastro mercado de valores[ \t]*:[ \t]*([^\n\r]*)', texto)
+        if res:
+            datos['resolucion_scvs'] = res[0].strip()
+            datos['catastro_mercado_valores'] = res[1].strip()
+
+        # Código vector precio y Código ISIN
+        res = aplicar_regex(r'C[óo]digo vector precio[ \t]*:[ \t]*(.*?)[ \t]+C[óo]digo ISIN[ \t]*:[ \t]*([^\n\r]*)', texto)
+        if res:
+            datos['codigo_vector_precio'] = res[0].strip()
+            datos['codigo_isin'] = res[1].strip()
+
+        # Tipo de mercado, Plazo por vencer, Plazo venc. Real, Base días
+        res = aplicar_regex(r'Tipo de mercado[ \t]*:[ \t]*(.*?)[ \t]+Plazo por vencer[ \t]*:[ \t]*(.*?)[ \t]+Plazo venc\. Real[ \t]*:[ \t]*(.*?)[ \t]+Base d[íi]as[ \t]*:[ \t]*([^\n\r]*)', texto)
+        if res:
+            datos['tipo_mercado'] = res[0].strip()
+            datos['plazo_por_vencer'] = res[1].strip()
+            datos['plazo_venc_real'] = res[2].strip()
+            datos['base_dias'] = res[3].strip()
+
+        # Rendimientos y Precios
+        res = aplicar_regex(r'Rend\.? Nominal[ \t]*:[ \t]*([\d,\.\%]*)[ \t]*Rend\.? Efectivo[ \t]*:[ \t]*([\d,\.\%]*)[ \t]*Precio sucio[ \t]*:[ \t]*([\d,\.\%]*)[ \t]*Precio[ \t]*:[ \t]*([\d,\.\%]+)', texto)
+        if res:
+            datos['rend_nominal'] = self.limpiar_valor_numerico(res[0])
+            datos['rend_efectivo'] = self.limpiar_valor_numerico(res[1])
+            datos['precio_sucio'] = self.limpiar_valor_numerico(res[2])
+            datos['precio'] = self.limpiar_valor_numerico(res[3])
+
+        # Cupón, Inicio de cupón, Vcto. Cupón, Monto a negociar
+        res = aplicar_regex(r'Cup[óo]n[ \t]*:[ \t]*(.*?)[ \t]+Inicio de cup[óo]n[ \t]*:[ \t]*(.*?)[ \t]+Vcto\. Cup[óo]n[ \t]*:[ \t]*(.*?)[ \t]+Monto a negociar[ \t]*:[ \t]*\$[ \t]*([\d,\.\-]+)', texto)
+        if res:
+            datos['cupon'] = res[0].strip()
+            datos['inicio_cupon'] = res[1].strip()
+            datos['vcto_cupon'] = res[2].strip()
+            datos['monto_a_negociar'] = self.limpiar_valor_numerico(res[3])
+
+        # Tasas e Intereses
+        res = aplicar_regex(r'Tasa inter[ée]s vigente[ \t]*:[ \t]*([\d,\.\%]*)[ \t]*Tasa inter[ée]s futura[ \t]*:[ \t]*([\d,\.\%]*)[ \t]*D[íi]as inter[ée]s[ \t]*:[ \t]*(\d*)[ \t]*Tipo tasa[ \t]*:[ \t]*([A-Za-z]*)', texto)
+        if res:
+            datos['tasa_interes_vigente'] = self.limpiar_valor_numerico(res[0])
+            datos['tasa_interes_futura'] = self.limpiar_valor_numerico(res[1])
+            datos['dias_interes'] = res[2].strip()
+            datos['tipo_tasa'] = res[3].strip()
+
+        # Valor garantía, Plazo garantía, Cump. Garantía, Fecha valor
+        res = aplicar_regex(r'Valor de garant[íi]a[ \t]*:[ \t]*(.*?)[ \t]+Plazo garant[íi]a[ \t]*:[ \t]*(.*?)[ \t]+Cump\. Garant[íi]a[ \t]*:[ \t]*(.*?)[ \t]+Fecha valor[ \t]*:[ \t]*([\d/]+)', texto)
+        if res:
+            datos['valor_garantia'] = res[0].strip()
+            datos['plazo_garantia'] = res[1].strip()
+            datos['cump_garantia'] = res[2].strip()
+            datos['fecha_valor'] = res[3].strip()
+
+        # Depósito compensación y Valor efectivo recompra
+        res = aplicar_regex(r'Dep[óo]sito de compensaci[óo]n[ \t]*:[ \t]*(.*?)[ \t]+Valor efectivo recompra[ \t]*:[ \t]*([^\n\r]*)', texto)
+        if res:
+            datos['deposito_compensacion'] = res[0].strip()
+            datos['valor_efectivo_recompra'] = res[1].strip()
+
+        # Factor cálculo y Cruzada
+        res = aplicar_regex(r'Factor de c[áa]lculo[ \t]*:[ \t]*(.*?)[ \t]+Cruzada[ \t]*:[ \t]*([A-Z]+)', texto)
+        if res:
+            datos['factor_calculo'] = res[0].strip()
+            datos['cruzada'] = res[1].strip()
+
+        # Totales - usando regex más generales sobre el texto completo
+        totales_patrones = {
+            'valor_efectivo': r'\(A\)VALOR EFECTIVO\s+([\d,\.\-]+)',
+            'valor_interes': r'\(B\)\s*VALOR INTER[EÉ]S\s+([\d,\.\-]+)?',
+            'total_desembolso': r'TOTAL DE DESEMBOLSO\s+([\d,\.\-]+)',
+            'comision_bolsa': r'\(C\) BOLSA\s+[\d\.%]+\s+([\d,\.\-]+)',
+            'comision_operador': r'\(D\) OPERADOR\s+[\d\.%]+\s+([\d,\.\-]+)',
+            'total_comisiones': r'TOTAL DE COMISIONES\s+([\d,\.\-]+)',
+            'retenciones_fuente_bvg': r'\(E\) RETENCIONES EN LA FUENTE BVG \*\s*([\d,\.\-]+)?',
+            'retenciones_fuente_cv': r'\(F\) RETENCIONES EN LA FUENTE CV\s*([\d,\.\-]+)?',
+            'total_retenciones': r'TOTAL DE RETENCIONES\s+([\d,\.\-]+)?',
+            'subtotales': r'SUBTOTALES:\s+([\d,\.\-]+)',
+            'iva': r'IVA:\s+([\d,\.\-]+)',
+            'total_comprador_bruto': r'TOTAL COMPRADOR BRUTO:\s*([\d,\.\-]+)',
+            'total_comprador_neto': r'TOTAL COMPRADOR NETO[:\s]*\$?\s*([\d,\.\-]+)'
+        }
+
+        # Para vendedor netos si es el caso
+        if datos['tipo_operacion'] == 'VENTA':
+            totales_patrones['total_comprador_neto'] = r'TOTAL VENDEDOR NETO[:\s]*\$?\s*([\d,\.\-]+)'
+            totales_patrones['total_comprador_bruto'] = r'TOTAL VENDEDOR BRUTO:\s*([\d,\.\-]+)'
+
+        for campo, patron in totales_patrones.items():
+            res = re.search(patron, texto, re.IGNORECASE)
+            if res and res.group(1):
+                datos[campo] = self.limpiar_valor_numerico(res.group(1).strip())
+
+        # Precio Neto
+        res_precio_neto = re.search(r'PRECIO NETO:\s*([\d,\.\-]+)', texto, re.IGNORECASE)
+        if res_precio_neto:
+            datos['precio_neto'] = self.limpiar_valor_numerico(res_precio_neto.group(1).strip())
+
+        # Limpiar y formatear fechas a YYYY-MM-DD
+        campos_fecha = [
+            'fecha_negociacion', 'fecha_valor', 'emision_titulo', 
+            'vencimiento_titulo', 'inicio_cupon', 'vcto_cupon'
+        ]
+        for campo in campos_fecha:
+            if campo in datos and datos[campo]:
+                datos[campo] = self.formatear_fecha_yyyy_mm_dd(str(datos[campo]))
+
         return datos
+
+    def extraer_datos_nota_credito(self, texto: str) -> Dict[str, Any]:
+        """Extrae datos específicos de una nota de crédito"""
+        return self.extraer_datos_bvg_comun(texto, 'NOTA_CREDITO')
+
+    def extraer_datos_bono_estado(self, texto: str) -> Dict[str, Any]:
+        """Extrae datos específicos de Bonos del Estado de BVG"""
+        return self.extraer_datos_bvg_comun(texto, 'BONO_ESTADO')
     
     def identificar_tipo_documento(self, texto: str) -> str:
         """Identifica el tipo de documento basado en el contenido"""
@@ -616,14 +575,26 @@ class PDFExtractor:
                 todos_los_campos.update(resultado.keys())
             
             # Ordenar campos para consistencia (campos principales primero)
-            campos_principales = ['tipo_operacion', 'propietario', 'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
-                               'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
-                               'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
-                               'precio', 'tasa_interes_vigente', 'monto_a_negociar',
-                               'valor_efectivo', 'valor_interes', 'total_desembolso',
-                               'comision_bolsa', 'comision_operador', 'total_comisiones',
-                               'total_comprador_neto', 'precio_neto', 'numero_titulos',
-                               'extractor_utilizado', 'archivo']
+            campos_principales = [
+                'tipo_operacion', 'propietario', 'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
+                'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
+                'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
+                'precio', 'tasa_interes_vigente', 'monto_a_negociar',
+                'valor_efectivo', 'valor_interes', 'total_desembolso',
+                'comision_bolsa', 'comision_operador', 'total_comisiones',
+                'total_comprador_neto', 'precio_neto', 'numero_titulos',
+                'factura_no', 'mercado', 'fecha_negociacion', 'hora_negociacion',
+                'casa_valores', 'ruc_casa_valores', 'direccion_casa_valores', 'operador_valores',
+                'saldo_por_amortizar', 'sector_economico', 'calificacion_riesgo', 'resolucion_scvs',
+                'catastro_mercado_valores', 'codigo_isin', 'tipo_mercado', 'plazo_por_vencer',
+                'plazo_venc_real', 'base_dias', 'precio_sucio', 'cupon', 'inicio_cupon',
+                'vcto_cupon', 'tasa_interes_futura', 'dias_interes', 'tipo_tasa',
+                'valor_garantia', 'plazo_garantia', 'cump_garantia', 'fecha_valor',
+                'deposito_compensacion', 'valor_efectivo_recompra', 'factor_calculo', 'cruzada',
+                'retenciones_fuente_bvg', 'retenciones_fuente_cv', 'total_retenciones', 'subtotales',
+                'iva', 'total_comprador_bruto',
+                'extractor_utilizado', 'archivo'
+            ]
             
             # Agregar campos adicionales que no estén en los principales
             campos_adicionales = sorted([campo for campo in todos_los_campos if campo not in campos_principales])
