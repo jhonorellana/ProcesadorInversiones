@@ -981,41 +981,6 @@ for col in range(5):
 
 BUTTON_WIDTH = 15
 
-btn_all = tk.Button(
-    frame_general,
-    text="Todo",
-    font=("Arial", 11),
-    width=BUTTON_WIDTH,
-    command=start_execution_all,
-)
-btn_all.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-
-btn_carga = tk.Button(
-    frame_general,
-    text="Carga Datos",
-    font=("Arial", 11),
-    width=BUTTON_WIDTH,
-    command=start_execution_carga_datos,
-)
-btn_carga.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-
-btn_backup = tk.Button(
-    frame_general,
-    text="Backup",
-    font=("Arial", 11),
-    width=BUTTON_WIDTH,
-    command=start_execution_backup,
-)
-btn_backup.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
-
-btn_procedimientos = tk.Button(
-    frame_general,
-    text="Procedimientos",
-    font=("Arial", 11),
-    width=BUTTON_WIDTH,
-    command=start_execution_procedures,
-)
-btn_procedimientos.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
 
 btn_descarga = tk.Button(
     frame_general,
@@ -1024,8 +989,44 @@ btn_descarga = tk.Button(
     width=BUTTON_WIDTH,
     command=start_execution_descarga_diaria,
 )
-btn_descarga.grid(row=0, column=4, padx=5, pady=5, sticky="ew")
+btn_descarga.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
 
+
+btn_all = tk.Button(
+    frame_general,
+    text="Todo",
+    font=("Arial", 11),
+    width=BUTTON_WIDTH,
+    command=start_execution_all,
+)
+btn_all.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+btn_carga = tk.Button(
+    frame_general,
+    text="Carga Datos",
+    font=("Arial", 11),
+    width=BUTTON_WIDTH,
+    command=start_execution_carga_datos,
+)
+btn_carga.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+
+btn_backup = tk.Button(
+    frame_general,
+    text="Backup",
+    font=("Arial", 11),
+    width=BUTTON_WIDTH,
+    command=start_execution_backup,
+)
+btn_backup.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+
+btn_procedimientos = tk.Button(
+    frame_general,
+    text="Procedimientos",
+    font=("Arial", 11),
+    width=BUTTON_WIDTH,
+    command=start_execution_procedures,
+)
+btn_procedimientos.grid(row=0, column=4, padx=5, pady=5, sticky="ew")
 
 # Frame: Carga Inversiones / amortizaciones
 frame_carga_inversiones = tk.LabelFrame(
@@ -1047,7 +1048,7 @@ btn_pdf_carga.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
 
 btn_db_carga = tk.Button(
     frame_carga_inversiones,
-    text="Cargar a DB",
+    text="Cargar a old DB",
     font=("Arial", 11),
     width=BUTTON_WIDTH,
     command=start_execution_database_loader,

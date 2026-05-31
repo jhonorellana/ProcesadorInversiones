@@ -20,7 +20,7 @@ class DatabaseLoader:
     def __init__(self):
         self.db_config = {
             'host': 'localhost',
-            'database': 'inversiones',
+            'database': 'inversion',
             'user': 'root',
             'password': '',
             'port': 3306
@@ -140,9 +140,9 @@ class DatabaseLoader:
         registro_db = {
             'inv_tipo': inv_tipo,
             'inv_fecha_compra': inv_fecha_compra,
-            'inv_propietario': 'Jhon',  # Valor fijo según ejemplo
+            'inv_propietario': registro_csv.get('propietario', 'Jhon'),  # Tomar del CSV, default Jhon
             'inv_liquidacion': registro_csv.get('operacion_no', ''),
-            'inv_instrumento': 91 if 'BONO' in tipo_documento else 222,  # Valor según ejemplo
+            'inv_instrumento': id_instrumento, 
             'inv_fecha_emision': inv_fecha_emision,
             'inv_fecha_vencimiento': inv_fecha_vencimiento,
             'inv_fecha_venta': None,
@@ -173,7 +173,7 @@ class DatabaseLoader:
             'inv_codigo_SEB': None,
             'inv_codigo_BCE': None,
             'inv_fechas_pagos_capital': None,
-            'id_instrumento': id_instrumento,
+            'id_instrumento': 91 if 'BONO' in tipo_documento else 222,  # Valor según ejemplo,
             'is_active': 1,
             'is_deleted': 0
         }

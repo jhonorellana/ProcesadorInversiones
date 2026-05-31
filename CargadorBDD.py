@@ -372,6 +372,7 @@ def main():
                     id_cuenta_bancaria,
                     id_persona,
                     monto,
+                    id_signo,
                     fecha_movimiento,
                     descripcion,
                     conciliado,
@@ -381,7 +382,7 @@ def main():
                     fecha_creacion,
                     fecha_actualizacion
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
                 )
                 """
                 mov_params = (
@@ -391,6 +392,7 @@ def main():
                     None,                  # id_cuenta_bancaria
                     id_propietario,        # id_persona
                     capital_invertido,     # monto
+                    191,                   # id_signo
                     today_date,            # fecha_movimiento
                     "Compra Nota de Crédito", # descripcion
                     0,                     # conciliado
