@@ -111,6 +111,34 @@ class PDFExtractor:
         
         # Mantener el punto decimal si existe
         return valor_limpio
+
+    def formatear_fecha_yyyy_mm_dd(self, fecha_str: str) -> str:
+        """Convierte cualquier formato de fecha común a YYYY-MM-DD (con o sin hora)"""
+        if not fecha_str:
+            return ""
+        fecha_str = fecha_str.strip()
+        
+        # Intentar separar fecha de hora
+        partes = fecha_str.split()
+        parte_fecha = partes[0]
+        parte_hora = " " + partes[1] if len(partes) > 1 else ""
+        
+        # Reemplazar diagonales por guiones
+        parte_fecha = parte_fecha.replace('/', '-')
+        
+        # Formatos como DD-MM-YYYY
+        match = re.match(r'^(\d{1,2})-(\d{1,2})-(\d{4})$', parte_fecha)
+        if match:
+            d, m, y = match.groups()
+            return f"{y}-{m.zfill(2)}-{d.zfill(2)}{parte_hora}"
+            
+        # Formatos como YYYY-MM-DD
+        match = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', parte_fecha)
+        if match:
+            y, m, d = match.groups()
+            return f"{y}-{m.zfill(2)}-{d.zfill(2)}{parte_hora}"
+            
+        return fecha_str
     
     def extraer_datos_liquidacion(self, ruta_archivo: str) -> Optional[Dict[str, Any]]:
         """Extrae datos de liquidación usando Gemini API"""
@@ -119,36 +147,87 @@ class PDFExtractor:
             documento = genai.upload_file(ruta_archivo, mime_type="application/pdf")
             
             prompt = """
-            Analiza este documento de liquidación de la Bolsa de Valores.
+            Analiza este documento de liquidación de la Bolsa de Valores de Quito (BVQ).
             Extrae todos los campos disponibles y devuélvelos exclusivamente en formato JSON puro.
             IMPORTANTE: No uses markdown code blocks (```json```), responde directamente con el JSON.
-            Agrupa la información en las siguientes categorías:
-            - Propietario (propietario)
-            - Tipo de operación de COMPRA o de VENTA (tipo_operacion)
-            - Tipo de documento (tipo_documento)
-            - Número de operación o liquidación (operacion_no)
-            - Título del valor (titulo_valor)
-            - Emisor (emisor)
-            - Valor nominal (valor_nominal)
-            - Fecha de emisión del título (emision_titulo)
-            - Fecha de vencimiento del título (vencimiento_titulo)
-            - Código del vector de precios (codigo_vector_precio)
-            - Rendimiento nominal (rend_nominal)
-            - Rendimiento efectivo (rend_efectivo)
-            - Precio (precio)
-            - Tasa de interés vigente (tasa_interes_vigente)
-            - Monto a negociar (monto_a_negociar)
-            - Valor efectivo (valor_efectivo)
-            - Valor del interés (valor_interes)
-            - Total desembolsado (total_desembolso)
-            - Comisión para la Bolsa de Valores (comision_bolsa)
-            - Comisión para el operador de la casa de valores (comision_operador)
-            - Total de las comisiones (total_comisiones)
-            - Total que se pagó por el título (total_comprador_neto)
-            - Precio neto (precio_neto)
-            - Número de títulos negociados (numero_titulos)
+            IMPORTANTE: Las fechas deben tener el formato AAAA-MM-DD (por ejemplo, 2026-05-31). Si una fecha incluye hora, mantenla con formato AAAA-MM-DD HH:MM:SS.
+            
+            Busca y extrae la siguiente información estructurada en estas claves:
+            - propietario: Nombre del cliente / propietario
+            - tipo_operacion: COMPRA o VENTA
+            - tipo_documento: Tipo de documento (ej. LIQUIDACION, NOTA_CREDITO, etc.)
+            - fecha_consulta: Fecha y hora de consulta de la liquidación
+            - fecha_cierre: Fecha y hora de cierre de la transacción
+            - operacion_no: Número de operación o liquidación de contrato
+            - casa_valores: Casa de valores intermediaria
+            - direccion_casa_valores: Dirección de la casa de valores
+            - ruc_casa_valores: RUC de la casa de valores
+            - operador_valores: Operador de valores
+            - titulo_valor: Nombre o descripción del título valor / valor
+            - emisor: Emisor del título
+            - valor_nominal_actual: Valor nominal actual (Val. Nom. actual)
+            - valor_nominal_original: Valor nominal original (Val. Nom. original)
+            - valor_efectivo: Valor efectivo (A)
+            - cupon_actual: Cupón actual
+            - cupon_anterior: Cupón anterior
+            - fecha_valor: Fecha valor
+            - fecha_emision: Fecha de emisión
+            - fecha_vencimiento: Fecha de vencimiento
+            - rendimiento_nominal: Rendimiento nominal (%) / RDTO. Nominal (%)
+            - precio: Precio (%)
+            - interes_nominal: Interés nominal (%)
+            - tir_tea: TIR / TEA (%)
+            - precio_neto: Precio neto (%)
+            - dias_interes: Días de interés
+            - base_dias: Base días
+            - plazo_por_vencer: Plazo por vencer
+            - desmaterializado: SI o NO (Desmaterializado)
+            - camara_compensacion: Cámara de compensación (Cam.compensación)
+            - moneda: Moneda utilizada
+            - mercado: Mercado (e.g. SECUNDARIO, PRIMARIO)
+            - postura: Postura (e.g. REGULAR)
+            - valor_minimo_cupon: Valor mínimo Cupón
+            - tipo_operacion_detalle: Tipo de operación (e.g. CONTADO, PLAZO)
+            - saldo_por_amortizar: Saldo por amortizar
+            - precio_sucio: Precio sucio (%)
+            - calificadora_riesgos: Calificadora de riesgos
+            - calificacion: Calificación de riesgos
+            - ultima_calificacion: Última calificación de riesgos
+            - codigo_vector: Código vector
+            - registro_rmv: Registro RMV
+            - plazo_reporto: Plazo reporto
+            - vencimiento_reporto: Vencimiento reporto (VCTO. Reporto)
+            - recurso: Recurso
+            - titulo_por_dividir: Título por dividir
+            - sector_economico: Sector económico (e.g. GOBIERNO CENTRAL)
+            
+            Sección de Comisiones:
+            - comision_bolsa: Bolsa(C)
+            - comision_operador: Operador(D)
+            - total_comisiones: Total comisiones (C + D o Total de comisiones)
+            - costo_general: Costo general
+            - subtotal_comision_operador: Subtotal comisión operador
+            - monto_retencion_operador: Monto retención operador
+            - iva_tarifa_0_operador: IVA Tarifa 0% operador
+            - total_operador: Total operador
+            - subtotal_comision_bvq: Subtotal comisión BVQ o Bolsa
+            - monto_retencion_bvq: Monto de retención BVQ o Bolsa
+            - iva_tarifa_0_bvq: IVA Tarifa 0% BVQ o Bolsa
+            - total_bvq: Total BVQ o Bolsa
+            
+            Sección de Intereses e Impuestos:
+            - valor_interes: Monto interés (B)
+            - impuestos: Impuestos
+            - iva_tarifa_0: IVA Tarifa 0% (de la sección intereses/impuestos)
+            - total_intereses_impuestos: Total intereses e impuestos
+            
+            Sección Totales Generales:
+            - total_comprador: Total comprador (o Total vendedor si es venta)
+            - observaciones: Observaciones
+            - factura_asociada_no: Liquidación asociada a factura No. / N0.
+
             No agregues explicaciones adicionales, solo el JSON. 
-            La parte entera del número debe estar separada de la parte decimal con un punto (.).
+            La parte entera de los números debe estar separada de la parte decimal con un punto (.).
             Responde ÚNICAMENTE con el objeto JSON, sin texto adicional.
             """
 
@@ -194,14 +273,33 @@ class PDFExtractor:
                 datos['archivo'] = os.path.basename(ruta_archivo)
                 
                 # Limpiar valores numéricos
-                campos_numericos = ['valor_nominal', 'numero_titulos', 'precio', 'monto_a_negociar', 
-                                   'valor_efectivo', 'total_desembolso', 'comision_bolsa', 
-                                   'comision_operador', 'total_comisiones', 'total_comprador_neto',
-                                   'precio_neto', 'rend_nominal', 'rend_efectivo', 'tasa_interes_vigente']
+                campos_numericos = [
+                    'valor_nominal_actual', 'valor_nominal_original', 'valor_efectivo', 'rendimiento_nominal', 
+                    'precio', 'interes_nominal', 'tir_tea', 'precio_neto', 'dias_interes', 'plazo_por_vencer',
+                    'valor_minimo_cupon', 'saldo_por_amortizar', 'precio_sucio', 'plazo_reporto',
+                    'comision_bolsa', 'comision_operador', 'total_comisiones', 'costo_general',
+                    'subtotal_comision_operador', 'monto_retencion_operador', 'iva_tarifa_0_operador',
+                    'total_operador', 'subtotal_comision_bvq', 'monto_retencion_bvq', 'iva_tarifa_0_bvq',
+                    'total_bvq', 'valor_interes', 'impuestos', 'iva_tarifa_0', 'total_intereses_impuestos',
+                    'total_comprador', 'total_vendedor'
+                ]
                 
                 for campo in campos_numericos:
                     if campo in datos and datos[campo]:
                         datos[campo] = self.limpiar_valor_numerico(str(datos[campo]))
+                
+                # Limpiar y formatear fechas a YYYY-MM-DD
+                campos_fecha = [
+                    'fecha_consulta', 'fecha_cierre', 'fecha_valor', 
+                    'fecha_emision', 'fecha_vencimiento', 'vencimiento_reporto'
+                ]
+                for campo in campos_fecha:
+                    if campo in datos and datos[campo]:
+                        datos[campo] = self.formatear_fecha_yyyy_mm_dd(str(datos[campo]))
+                
+                # Asegurar campo valor_nominal para compatibilidad con renombrado
+                if 'valor_nominal' not in datos or not datos['valor_nominal']:
+                    datos['valor_nominal'] = datos.get('valor_nominal_actual') or datos.get('valor_nominal_original') or ''
                 
                 # Identificar tipo de documento si no viene en la respuesta
                 if 'tipo_documento' not in datos:
@@ -285,13 +383,24 @@ class PDFExtractor:
                 todos_los_campos.update(resultado.keys())
             
             # Ordenar campos para consistencia
-            campos_principales = ['tipo_operacion', 'propietario', 'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
-                               'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
-                               'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
-                               'precio', 'tasa_interes_vigente', 'monto_a_negociar',
-                               'valor_efectivo', 'valor_interes', 'total_desembolso',
-                               'comision_bolsa', 'comision_operador', 'total_comisiones',
-                               'total_comprador_neto', 'precio_neto', 'numero_titulos']
+            campos_principales = [
+                'tipo_operacion', 'propietario', 'tipo_documento', 'fecha_consulta', 'fecha_cierre', 'operacion_no',
+                'casa_valores', 'direccion_casa_valores', 'ruc_casa_valores', 'operador_valores',
+                'titulo_valor', 'emisor', 'valor_nominal_actual', 'valor_nominal_original', 'valor_efectivo',
+                'cupon_actual', 'cupon_anterior', 'fecha_valor', 'fecha_emision', 'fecha_vencimiento',
+                'rendimiento_nominal', 'precio', 'interes_nominal', 'tir_tea', 'precio_neto',
+                'dias_interes', 'base_dias', 'plazo_por_vencer', 'desmaterializado', 'camara_compensacion',
+                'moneda', 'mercado', 'postura', 'valor_minimo_cupon', 'tipo_operacion_detalle',
+                'saldo_por_amortizar', 'precio_sucio', 'calificadora_riesgos', 'calificacion',
+                'ultima_calificacion', 'codigo_vector', 'registro_rmv', 'plazo_reporto',
+                'vencimiento_reporto', 'recurso', 'titulo_por_dividir', 'sector_economico',
+                'comision_bolsa', 'comision_operador', 'total_comisiones', 'costo_general',
+                'subtotal_comision_operador', 'monto_retencion_operador', 'iva_tarifa_0_operador',
+                'total_operador', 'subtotal_comision_bvq', 'monto_retencion_bvq', 'iva_tarifa_0_bvq',
+                'total_bvq', 'valor_interes', 'impuestos', 'iva_tarifa_0', 'total_intereses_impuestos',
+                'total_comprador', 'observaciones', 'factura_asociada_no',
+                'extractor_utilizado', 'archivo'
+            ]
             
             campos_adicionales = sorted([campo for campo in todos_los_campos if campo not in campos_principales])
             encabezados = campos_principales + campos_adicionales
