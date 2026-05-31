@@ -13,7 +13,8 @@ from typing import Dict, Any
 # Importar los módulos locales
 from UnzipArchivos import Unzipper
 from RenombrarArchivos import RenombradorArchivos
-from PDFExtractor_BVG import PDFExtractor
+from PDFExtractor_BVG import PDFExtractor as PDFExtractorBVG
+from PDFExtractor_Gemini import PDFExtractor as PDFExtractorGemini
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -61,6 +62,30 @@ class MainProcesador:
             logger.info(f"Se excluyeron {archivos_excluidos} archivos de factura de bolsa")
         
         return archivos_filtrados, archivos_excluidos
+
+    def detectar_bolsa_origen(self, ruta_pdf: str) -> str:
+        """Determina si un PDF viene de BVG (Guayaquil) o BVQ (Quito) analizando su texto"""
+        texto = ""
+        try:
+            import pdfplumber
+            with pdfplumber.open(ruta_pdf) as pdf:
+                for pagina in pdf.pages[:1]:
+                    texto = pagina.extract_text() or ""
+        except Exception as e:
+            logger.warning(f"No se pudo usar pdfplumber para detectar bolsa en {ruta_pdf}: {e}")
+            try:
+                import PyPDF2
+                with open(ruta_pdf, 'rb') as f:
+                    lector = PyPDF2.PdfReader(f)
+                    if lector.pages:
+                        texto = lector.pages[0].extract_text() or ""
+            except Exception as e2:
+                logger.error(f"No se pudo extraer texto con PyPDF2 para detectar bolsa en {ruta_pdf}: {e2}")
+                
+        texto_upper = texto.upper()
+        if 'QUITO' in texto_upper or 'BVQ' in texto_upper:
+            return 'BVQ'
+        return 'BVG' # Por defecto asumimos BVG
     
     def renombrar_usando_datos_existentes(self, archivos_filtrados: list, datos_extraidos: list) -> Dict[str, Any]:
         """Renombra archivos usando datos ya extraídos para evitar llamadas adicionales a la API"""
@@ -220,6 +245,7 @@ class MainProcesador:
             
             # Descomprimir
             resultados = unzipper.descomprimir_todos()
+            resultados['exitoso'] = (resultados.get('errores', 0) == 0)
             unzipper.mostrar_resumen(resultados)
             
             # Guardar reporte de descompresión
@@ -309,7 +335,8 @@ class MainProcesador:
         print("="*60)
         
         try:
-            extractor = PDFExtractor()
+            extractor_bvg = PDFExtractorBVG()
+            extractor_gemini = PDFExtractorGemini()
             
             # Verificar si hay archivos PDF
             if not os.path.exists(self.carpeta_entrada):
@@ -344,22 +371,41 @@ class MainProcesador:
                     'archivos_excluidos': archivos_excluidos
                 }
             
-            print(f"Procesando {len(archivos_filtrados)} archivos PDF válidos...")
+            print(f"Detectando origen y procesando {len(archivos_filtrados)} archivos PDF válidos...")
             
-            # Extraer datos usando archivos filtrados
-            if hasattr(extractor, 'procesar_lista_archivos'):
-                resultados = extractor.procesar_lista_archivos(self.carpeta_entrada, archivos_filtrados)
-            else:
-                # Fallback para extractores que no tienen el método
-                resultados = extractor.procesar_carpeta(self.carpeta_entrada)
+            resultados_bvg = []
+            resultados_quito = []
             
-            if resultados:
+            for archivo in archivos_filtrados:
+                ruta_completa = os.path.join(self.carpeta_entrada, archivo)
+                origen = self.detectar_bolsa_origen(ruta_completa)
+                
+                if origen == 'BVG':
+                    print(f"   Procesando con BVG (Guayaquil): {archivo}")
+                    datos = extractor_bvg.procesar_pdf(ruta_completa)
+                    if datos:
+                        resultados_bvg.append(datos)
+                else:
+                    print(f"   Procesando con Gemini (Quito): {archivo}")
+                    datos = extractor_gemini.extraer_datos_liquidacion(ruta_completa)
+                    if datos:
+                        # Asegurar metadatos consistentes
+                        datos['archivo'] = archivo
+                        datos['ruta_completa'] = ruta_completa
+                        datos['fecha_procesamiento'] = datetime.now().isoformat()
+                        datos['tamaño_archivo'] = os.path.getsize(ruta_completa)
+                        datos['extractor_utilizado'] = 'Gemini (Quito)'
+                        resultados_quito.append(datos)
+            
+            total_extraidos = len(resultados_bvg) + len(resultados_quito)
+            
+            if total_extraidos > 0:
                 print(f"\n[INFO] RESUMEN DE EXTRACCIÓN:")
-                print(f"Total de registros extraídos: {len(resultados)}")
+                print(f"Total de registros extraídos: {total_extraidos} (BVG: {len(resultados_bvg)}, Quito: {len(resultados_quito)})")
                 
                 # Contar por tipo de documento
                 tipos = {}
-                for resultado in resultados:
+                for resultado in resultados_bvg + resultados_quito:
                     tipo = resultado.get('tipo_documento', 'DESCONOCIDO')
                     tipos[tipo] = tipos.get(tipo, 0) + 1
                 
@@ -367,18 +413,33 @@ class MainProcesador:
                 for tipo, cantidad in tipos.items():
                     print(f"  - {tipo}: {cantidad}")
                 
-                # Guardar resultados en CSV
+                # Guardar resultados en CSV distintos
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                archivo_salida = os.path.join(self.carpeta_salida, f"resultados_pdf_{timestamp}.csv")
-                extractor.guardar_resultados_csv(resultados, archivo_salida)
+                archivo_salida_bvg = os.path.join(self.carpeta_salida, f"resultados_pdf_bvg_{timestamp}.csv")
+                archivo_salida_quito = os.path.join(self.carpeta_salida, f"resultados_pdf_quito_{timestamp}.csv")
+                
+                archivos_salida = []
+                if resultados_bvg:
+                    extractor_bvg.guardar_resultados_csv(resultados_bvg, archivo_salida_bvg)
+                    archivos_salida.append(archivo_salida_bvg)
+                else:
+                    archivo_salida_bvg = ""
+                    
+                if resultados_quito:
+                    extractor_gemini.guardar_resultados_csv(resultados_quito, archivo_salida_quito)
+                    archivos_salida.append(archivo_salida_quito)
+                else:
+                    archivo_salida_quito = ""
                 
                 return {
                     'exitoso': True,
-                    'total_registros': len(resultados),
-                    'archivo_salida': archivo_salida,
+                    'total_registros': total_extraidos,
+                    'archivo_salida_bvg': archivo_salida_bvg,
+                    'archivo_salida_quito': archivo_salida_quito,
+                    'archivo_salida': " y ".join(archivos_salida),
                     'tipos_documento': tipos,
                     'archivos_excluidos': archivos_excluidos,
-                    'resultados': resultados  # Agregar resultados brutos para reutilizar en renombrado
+                    'resultados': resultados_bvg + resultados_quito  # Combinar resultados para el renombrado
                 }
             else:
                 print("[WARN]  No se extrajeron datos de los archivos PDF")
