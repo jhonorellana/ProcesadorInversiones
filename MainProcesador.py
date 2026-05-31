@@ -431,11 +431,17 @@ class MainProcesador:
                 else:
                     archivo_salida_quito = ""
                 
+                # Guardar archivo recopilatorio csv con los campos que teníamos en un principio
+                archivo_salida_recopilatorio = os.path.join(self.carpeta_salida, f"resultados_pdf_{timestamp}.csv")
+                self.guardar_resultados_recopilatorio(resultados_bvg, resultados_quito, archivo_salida_recopilatorio)
+                archivos_salida.append(archivo_salida_recopilatorio)
+                
                 return {
                     'exitoso': True,
                     'total_registros': total_extraidos,
                     'archivo_salida_bvg': archivo_salida_bvg,
                     'archivo_salida_quito': archivo_salida_quito,
+                    'archivo_salida_recopilatorio': archivo_salida_recopilatorio,
                     'archivo_salida': " y ".join(archivos_salida),
                     'tipos_documento': tipos,
                     'archivos_excluidos': archivos_excluidos,
@@ -454,6 +460,79 @@ class MainProcesador:
             logger.error(error_msg)
             self.resultados_globales['errores'].append(error_msg)
             return {'exitoso': False, 'error': error_msg}
+            
+    def guardar_resultados_recopilatorio(self, resultados_bvg: list, resultados_quito: list, archivo_salida: str):
+        """Genera un archivo CSV consolidado con los 22 campos del extractor original para ambas bolsas"""
+        import csv
+        try:
+            registros_normalizados = []
+            
+            # 1. Procesar registros de BVG (ya tienen los campos originales)
+            for r in resultados_bvg:
+                if r.get('tipo_documento') == 'DESCONOCIDO':
+                    continue
+                registros_normalizados.append(r)
+                
+            # 2. Procesar y mapear registros de Quito (Gemini)
+            for r in resultados_quito:
+                if r.get('tipo_documento') == 'DESCONOCIDO':
+                    continue
+                # Mapear campos del extractor de Quito a los del extractor original
+                r_mapped = {
+                    'tipo_documento': r.get('tipo_documento', ''),
+                    'operacion_no': r.get('operacion_no', ''),
+                    'titulo_valor': r.get('titulo_valor', ''),
+                    'emisor': r.get('emisor', ''),
+                    'valor_nominal': r.get('valor_nominal', ''),
+                    'emision_titulo': r.get('fecha_emision', ''),
+                    'vencimiento_titulo': r.get('fecha_vencimiento', ''),
+                    'codigo_vector_precio': r.get('codigo_vector', ''),
+                    'rend_nominal': r.get('rendimiento_nominal', ''),
+                    'rend_efectivo': r.get('cupon_actual', ''),
+                    'precio': r.get('precio', ''),
+                    'tasa_interes_vigente': r.get('interes_nominal', ''),
+                    'monto_a_negociar': r.get('valor_nominal', ''),
+                    'valor_efectivo': r.get('valor_efectivo', ''),
+                    'valor_interes': r.get('valor_interes', ''),
+                    'total_desembolso': r.get('valor_efectivo', ''),
+                    'comision_bolsa': r.get('comision_bolsa', ''),
+                    'comision_operador': r.get('comision_operador', ''),
+                    'total_comisiones': r.get('total_comisiones', ''),
+                    'total_comprador_neto': r.get('total_comprador', ''),
+                    'precio_neto': r.get('precio_neto', ''),
+                    'numero_titulos': r.get('numero_titulos', '1'),
+                    'archivo': r.get('archivo', '')
+                }
+                registros_normalizados.append(r_mapped)
+                
+            if not registros_normalizados:
+                logger.warning("No hay registros válidos para guardar en el recopilatorio")
+                return
+                
+            # Cabeceras del extractor original + archivo
+            encabezados = [
+                'tipo_documento', 'operacion_no', 'titulo_valor', 'emisor', 
+                'valor_nominal', 'emision_titulo', 'vencimiento_titulo',
+                'codigo_vector_precio', 'rend_nominal', 'rend_efectivo',
+                'precio', 'tasa_interes_vigente', 'monto_a_negociar',
+                'valor_efectivo', 'valor_interes', 'total_desembolso',
+                'comision_bolsa', 'comision_operador', 'total_comisiones',
+                'total_comprador_neto', 'precio_neto', 'numero_titulos',
+                'archivo'
+            ]
+            
+            with open(archivo_salida, 'w', newline='', encoding='latin-1') as f:
+                writer = csv.DictWriter(f, fieldnames=encabezados, delimiter=';')
+                writer.writeheader()
+                for reg in registros_normalizados:
+                    fila = {campo: reg.get(campo, '') for campo in encabezados}
+                    writer.writerow(fila)
+                    
+            logger.info(f"Archivo recopilatorio guardado en CSV: {archivo_salida}")
+            print(f"   Archivo recopilatorio guardado en CSV: {archivo_salida}")
+            
+        except Exception as e:
+            logger.error(f"Error generando archivo recopilatorio: {e}")
     
     def ejecutar_proceso_completo(self) -> Dict[str, Any]:
         """Ejecuta la secuencia completa de procesamiento"""
