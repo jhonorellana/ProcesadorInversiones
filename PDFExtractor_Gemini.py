@@ -140,13 +140,13 @@ class PDFExtractor:
             
         return fecha_str
     
-    def extraer_datos_liquidacion(self, ruta_archivo: str) -> Optional[Dict[str, Any]]:
-        """Extrae datos de liquidación usando Gemini API"""
+    def extraer_datos_liquidacion(self, ruta_archivo: str, tipo_bolsa: str) -> Optional[Dict[str, Any]]:
+        """Extrae datos de liquidación usando Gemini API según la bolsa (BVG o BVQ)"""
         try:
             # Subir documento
             documento = genai.upload_file(ruta_archivo, mime_type="application/pdf")
             
-            prompt = """
+            prompt_bvq = """
             Analiza este documento de liquidación de la Bolsa de Valores de Quito (BVQ).
             Extrae todos los campos disponibles y devuélvelos exclusivamente en formato JSON puro.
             IMPORTANTE: No uses markdown code blocks (```json```), responde directamente con el JSON.
@@ -231,10 +231,91 @@ class PDFExtractor:
             Responde ÚNICAMENTE con el objeto JSON, sin texto adicional.
             """
 
+            prompt_bvg = """
+            Analiza este documento de liquidación de la Bolsa de Valores de Guayaquil (BVG).
+            Extrae todos los campos disponibles y devuélvelos exclusivamente en formato JSON puro.
+            IMPORTANTE: No uses markdown code blocks (```json```), responde directamente con el JSON.
+            IMPORTANTE: Las fechas deben tener el formato AAAA-MM-DD (por ejemplo, 2026-05-31). Si una fecha incluye hora, mantenla con formato AAAA-MM-DD HH:MM:SS.
+            
+            Busca y extrae la siguiente información estructurada en estas claves:
+            - propietario: Nombre del cliente / inversionista / propietario
+            - tipo_operacion: COMPRA o VENTA (Postura)
+            - tipo_documento: Tipo de documento (ej. NOTA_CREDITO, BONO_ESTADO, etc.)
+            - operacion_no: Número de operación (ej: el número tras BOLSA DE VALORES DE GUAYAQUIL S.A. BVG)
+            - titulo_valor: Título valor / valor
+            - emisor: Emisor
+            - valor_nominal: Valor nominal
+            - emision_titulo: Emisión de título (Fecha de emisión)
+            - vencimiento_titulo: Vencimiento título (Fecha de vencimiento)
+            - codigo_vector_precio: Código vector precio
+            - rend_nominal: Rendimiento nominal / RDTO. Nominal (%)
+            - rend_efectivo: Rendimiento efectivo / RDTO. Efectivo (%)
+            - precio: Precio (%)
+            - tasa_interes_vigente: Tasa de interés vigente / Tasa int. vig (%)
+            - monto_a_negociar: Monto a negociar
+            - valor_efectivo: Valor efectivo (A)
+            - valor_interes: Valor interés (B) / Valor interés acumulado
+            - total_desembolso: Total de desembolso
+            - comision_bolsa: Comisión Bolsa (C)
+            - comision_operador: Comisión Operador (D)
+            - total_comisiones: Total de comisiones (C + D)
+            - total_comprador_neto: Total comprador neto (o Total vendedor neto si es Venta)
+            - precio_neto: Precio neto (%)
+            - numero_titulos: Número de títulos
+            - factura_no: Factura No.
+            - mercado: Mercado (ej. RENTA FIJA)
+            - fecha_negociacion: Fecha de negociación
+            - hora_negociacion: Hora de negociación
+            - casa_valores: Casa de valores intermediaria
+            - ruc_casa_valores: RUC de la casa de valores
+            - direccion_casa_valores: Dirección de la casa de valores
+            - operador_valores: Operador de valores
+            - saldo_por_amortizar: Saldo por amortizar
+            - sector_economico: Sector económico
+            - calificacion_riesgo: Calificación de riesgo
+            - resolucion_scvs: Resolución SCVS
+            - catastro_mercado_valores: Catastro mercado de valores
+            - codigo_isin: Código ISIN
+            - tipo_mercado: Tipo de mercado
+            - plazo_por_vencer: Plazo por vencer
+            - plazo_venc_real: Plazo vencimiento real
+            - base_dias: Base días (ej: 360/360)
+            - precio_sucio: Precio sucio (%)
+            - cupon: Cupón (%)
+            - inicio_cupon: Inicio cupón
+            - vcto_cupon: Vencimiento de cupón / Vcto cupón
+            - tasa_interes_futura: Tasa de interés futura
+            - dias_interes: Días de interés / Días transcurridos
+            - tipo_tasa: Tipo tasa (ej: FIJA, VARIABLE)
+            - valor_garantia: Valor garantía
+            - plazo_garantia: Plazo garantía
+            - cump_garantia: Cumplimiento de garantía
+            - fecha_valor: Fecha valor
+            - deposito_compensacion: Depósito de compensación
+            - valor_efectivo_recompra: Valor efectivo recompra
+            - factor_calculo: Factor de cálculo
+            - cruzada: Cruzada (SI o NO)
+            - retenciones_fuente_bvg: Retenciones en la fuente BVG (E)
+            - retenciones_fuente_cv: Retenciones en la fuente CV (F)
+            - total_retenciones: Total de retenciones
+            - subtotales: Subtotales
+            - iva: IVA
+            - total_comprador_bruto: Total comprador bruto (o Total vendedor bruto si es Venta)
+
+            No agregues explicaciones adicionales, solo el JSON. 
+            La parte entera de los números debe estar separada de la parte decimal con un punto (.).
+            Responde ÚNICAMENTE con el objeto JSON, sin texto adicional.
+            """
+
+            if tipo_bolsa.upper() == 'BVG':
+                prompt = prompt_bvg
+            else:
+                prompt = prompt_bvq
+
             # Generar respuesta
             response = self.model.generate_content([prompt, documento])
             
-            logger.info(f"Respuesta cruda de Gemini: {response.text[:200]}...")
+            logger.info(f"Respuesta cruda de Gemini ({tipo_bolsa}): {response.text[:200]}...")
             
             try:
                 # Limpiar respuesta de Gemini para eliminar markdown code blocks
@@ -272,8 +353,9 @@ class PDFExtractor:
                 # Agregar información del archivo
                 datos['archivo'] = os.path.basename(ruta_archivo)
                 
-                # Limpiar valores numéricos
+                # Limpiar valores numéricos (tanto de BVG como de BVQ)
                 campos_numericos = [
+                    # De BVQ
                     'valor_nominal_actual', 'valor_nominal_original', 'valor_efectivo', 'rendimiento_nominal', 
                     'precio', 'interes_nominal', 'tir_tea', 'precio_neto', 'dias_interes', 'plazo_por_vencer',
                     'valor_minimo_cupon', 'saldo_por_amortizar', 'precio_sucio', 'plazo_reporto',
@@ -281,17 +363,27 @@ class PDFExtractor:
                     'subtotal_comision_operador', 'monto_retencion_operador', 'iva_tarifa_0_operador',
                     'total_operador', 'subtotal_comision_bvq', 'monto_retencion_bvq', 'iva_tarifa_0_bvq',
                     'total_bvq', 'valor_interes', 'impuestos', 'iva_tarifa_0', 'total_intereses_impuestos',
-                    'total_comprador', 'total_vendedor'
+                    'total_comprador', 'total_vendedor',
+                    # De BVG
+                    'valor_nominal', 'rend_nominal', 'rend_efectivo', 'tasa_interes_vigente', 'monto_a_negociar',
+                    'total_desembolso', 'total_comprador_neto', 'numero_titulos', 'plazo_venc_real',
+                    'cupon', 'tasa_interes_futura', 'valor_garantia', 'plazo_garantia',
+                    'valor_efectivo_recompra', 'retenciones_fuente_bvg', 'retenciones_fuente_cv',
+                    'total_retenciones', 'subtotales', 'total_comprador_bruto'
                 ]
                 
                 for campo in campos_numericos:
                     if campo in datos and datos[campo]:
                         datos[campo] = self.limpiar_valor_numerico(str(datos[campo]))
                 
-                # Limpiar y formatear fechas a YYYY-MM-DD
+                # Limpiar y formatear fechas a YYYY-MM-DD (tanto de BVG como de BVQ)
                 campos_fecha = [
+                    # De BVQ
                     'fecha_consulta', 'fecha_cierre', 'fecha_valor', 
-                    'fecha_emision', 'fecha_vencimiento', 'vencimiento_reporto'
+                    'fecha_emision', 'fecha_vencimiento', 'vencimiento_reporto',
+                    # De BVG
+                    'fecha_negociacion', 'emision_titulo', 'vencimiento_titulo',
+                    'inicio_cupon', 'vcto_cupon'
                 ]
                 for campo in campos_fecha:
                     if campo in datos and datos[campo]:
@@ -299,7 +391,7 @@ class PDFExtractor:
                 
                 # Asegurar campo valor_nominal para compatibilidad con renombrado
                 if 'valor_nominal' not in datos or not datos['valor_nominal']:
-                    datos['valor_nominal'] = datos.get('valor_nominal_actual') or datos.get('valor_nominal_original') or ''
+                    datos['valor_nominal'] = datos.get('valor_nominal_actual') or datos.get('valor_nominal_original') or datos.get('valor_efectivo') or ''
                 
                 # Identificar tipo de documento si no viene en la respuesta
                 if 'tipo_documento' not in datos:
