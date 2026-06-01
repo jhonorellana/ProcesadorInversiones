@@ -14,6 +14,7 @@ from typing import Dict, Any
 from UnzipArchivos import Unzipper
 from RenombrarArchivos import RenombradorArchivos
 from PDFExtractor_BVG import PDFExtractor as PDFExtractorBVG
+from PDFExtractor_BVQ import PDFExtractor as PDFExtractorBVQ
 from PDFExtractor_Gemini import PDFExtractor as PDFExtractorGemini
 
 # Configuración de logging
@@ -367,6 +368,7 @@ class MainProcesador:
         
         try:
             extractor_bvg = PDFExtractorBVG()
+            extractor_bvq = PDFExtractorBVQ()
             extractor_gemini = PDFExtractorGemini()
             
             # Verificar si hay archivos PDF
@@ -438,7 +440,22 @@ class MainProcesador:
                 
                 if origen == 'BVG':
                     print(f"   Procesando con BVG (Guayaquil): {archivo}")
-                    datos = extractor_bvg.procesar_pdf(ruta_completa)
+                    datos = None
+                    try:
+                        datos = extractor_bvg.procesar_pdf(ruta_completa)
+                    except Exception as e:
+                        logger.error(f"Error en extractor local BVG para {archivo}: {e}")
+                    
+                    # Fallback a Gemini si falla o no se reconoce el documento
+                    if not datos or datos.get('tipo_documento') == 'DESCONOCIDO':
+                        print(f"   [FALLBACK] Extractor local BVG falló o no identificó el tipo de documento. Invocando Gemini...")
+                        try:
+                            datos = extractor_gemini.extraer_datos_liquidacion(ruta_completa, tipo_bolsa='BVG')
+                            if datos:
+                                datos['extractor_utilizado'] = 'Gemini (Guayaquil) [Fallback]'
+                        except Exception as e:
+                            logger.error(f"Error en fallback Gemini para {archivo}: {e}")
+                    
                     if datos:
                         # Inyectar propietario desde el mapa de facturas
                         ope_raw = datos.get('operacion_no', '') or ''
@@ -447,17 +464,40 @@ class MainProcesador:
                         except ValueError:
                             ope_no_norm = ope_raw
                         datos['propietario'] = propietarios_por_operacion.get(ope_no_norm, '')
+                        # Asegurar metadatos del archivo
+                        if 'archivo' not in datos or not datos['archivo']:
+                            datos['archivo'] = archivo
+                            datos['ruta_completa'] = ruta_completa
+                            datos['fecha_procesamiento'] = datetime.now().isoformat()
+                            datos['tamaño_archivo'] = os.path.getsize(ruta_completa)
                         resultados_bvg.append(datos)
                 else:
-                    print(f"   Procesando con Gemini (Quito): {archivo}")
-                    datos = extractor_gemini.extraer_datos_liquidacion(ruta_completa)
+                    print(f"   Procesando con BVQ (Quito): {archivo}")
+                    datos = None
+                    try:
+                        datos = extractor_bvq.extraer_datos_liquidacion(ruta_completa)
+                    except Exception as e:
+                        logger.error(f"Error en extractor local BVQ para {archivo}: {e}")
+                    
+                    # Fallback a Gemini si falla o no se reconoce el documento
+                    if not datos or datos.get('tipo_documento') == 'DESCONOCIDO':
+                        print(f"   [FALLBACK] Extractor local BVQ falló o no identificó el tipo de documento. Invocando Gemini...")
+                        try:
+                            datos = extractor_gemini.extraer_datos_liquidacion(ruta_completa, tipo_bolsa='BVQ')
+                            if datos:
+                                datos['extractor_utilizado'] = 'Gemini (Quito) [Fallback]'
+                        except Exception as e:
+                            logger.error(f"Error en fallback Gemini para {archivo}: {e}")
+                    
                     if datos:
                         # Asegurar metadatos consistentes
-                        datos['archivo'] = archivo
-                        datos['ruta_completa'] = ruta_completa
-                        datos['fecha_procesamiento'] = datetime.now().isoformat()
-                        datos['tamaño_archivo'] = os.path.getsize(ruta_completa)
-                        datos['extractor_utilizado'] = 'Gemini (Quito)'
+                        if 'archivo' not in datos or not datos['archivo']:
+                            datos['archivo'] = archivo
+                            datos['ruta_completa'] = ruta_completa
+                            datos['fecha_procesamiento'] = datetime.now().isoformat()
+                            datos['tamaño_archivo'] = os.path.getsize(ruta_completa)
+                        if 'extractor_utilizado' not in datos or not datos['extractor_utilizado']:
+                            datos['extractor_utilizado'] = 'PDFExtractor_BVQ (Quito)'
                         # Inyectar propietario: la clave puede ser "12089" (sin guión VRF)
                         ope_quito = str(datos.get('operacion_no', '') or '').split('-')[0].strip()
                         datos['propietario'] = propietarios_por_operacion.get(ope_quito, '')
@@ -492,7 +532,7 @@ class MainProcesador:
                     archivo_salida_bvg = ""
                     
                 if resultados_quito:
-                    extractor_gemini.guardar_resultados_csv(resultados_quito, archivo_salida_quito)
+                    extractor_bvq.guardar_resultados_csv(resultados_quito, archivo_salida_quito)
                     archivos_salida.append(archivo_salida_quito)
                 else:
                     archivo_salida_quito = ""
