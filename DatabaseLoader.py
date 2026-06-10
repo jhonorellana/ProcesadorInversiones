@@ -169,7 +169,7 @@ class DatabaseLoader:
             'inv_valor_sin_comision': valor_efectivo,
             'inv_valor_con_interes': capital_invertido,
             'inv_interes_acumulado_previo': 0,  # Valor fijo según ejemplo
-            'inv_total_comisiones': total_comisiones,
+            'inv_total_comisiones': comision_bolsa + comision_operador, # total_comisiones,
             'inv_codigo_SEB': None,
             'inv_codigo_BCE': None,
             'inv_fechas_pagos_capital': None,

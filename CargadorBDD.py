@@ -288,12 +288,12 @@ def main():
                     0.0,                       # interes_acumulado_previo
                     0.0,                       # interes_mensual
                     0.0,                       # interes_primer_mes
-                    total_comisiones,          # total_comisiones
+                    comision_bolsa + comision_casa_valores,          # total_comisiones
                     0.0,                       # tasa_mensual_real
                     None,                      # fecha_primer_pago
                     precio_compra,             # precio_compra (precio_comprado)
                     precio_neto,               # precio_neto_compra (precio_neto)
-                    total_comisiones - comision_casa_valores, # comision_bolsa
+                    comision_bolsa, # comision_bolsa
                     comision_casa_valores,     # comision_casa_valores
                     0.0,                       # retencion_fuente
                     f"Migrado de archivo: {row['archivo']}", # observacion
