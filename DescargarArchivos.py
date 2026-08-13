@@ -7,9 +7,9 @@ from shutil import rmtree
 
 
 
-MyDelay1 = 4
-MyDelay2 = 4
-MyDelay3 = 4
+MyDelay1 = 8
+MyDelay2 = 8
+MyDelay3 = 8
 
 aaaa=time.strftime("%Y")
 

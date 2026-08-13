@@ -132,20 +132,56 @@ def verificar_conexion_bd() -> bool:
 # ---------------------------------------
 # Stored Procedures
 # ---------------------------------------
-def ejecutar_sp(nombre_sp: str) -> bool:
+def ejecutar_sp(nombre_sp: str, args: tuple = None) -> bool:
     """
     Ejecuta un stored procedure y devuelve True si todo OK, False si hubo error.
     Distingue error de conexión vs error de lógica.
     """
+    if args is None:
+        args = ()
+
+    current_db_config = db_config.copy()
+    if nombre_sp.startswith("sipro_desa."):
+        current_db_config["database"] = "sipro_desa"
+        sp_name_to_call = nombre_sp.replace("sipro_desa.", "")
+    else:
+        sp_name_to_call = nombre_sp
+
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
-        cursor.callproc(nombre_sp)
+        mensaje_inicio = f"Iniciando ejecución: {nombre_sp}..." if not args else f"Iniciando ejecución: {nombre_sp}{args}..."
+        imprimir_linea(mensaje_inicio, "normal")
+        escribir_log(mensaje_inicio)
+
+        conn = mysql.connector.connect(**current_db_config)
+        cursor = conn.cursor(buffered=True)
+        
+        if args:
+            placeholders = ", ".join(["%s"] * len(args))
+            sql = f"CALL {sp_name_to_call}({placeholders})"
+            cursor.execute(sql, args)
+        else:
+            cursor.execute(f"CALL {sp_name_to_call}()")
+
+        # Consumir y vaciar completamente todos los resultsets emitidos por el SP
+        try:
+            cursor.fetchall()
+        except Exception:
+            pass
+
+        try:
+            while cursor.nextset():
+                try:
+                    cursor.fetchall()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         conn.commit()
         cursor.close()
         conn.close()
 
-        mensaje = f"Stored procedure ejecutado: {nombre_sp}"
+        mensaje = f"Stored procedure completado: {nombre_sp}" if not args else f"Stored procedure completado: {nombre_sp}{args}"
         imprimir_linea(mensaje, "normal")
         escribir_log(mensaje)
         return True
@@ -198,10 +234,18 @@ def run_sps() -> bool:
         "SP_ACTUALIZAR_CONSOLIDADO_INVERSIONES",
         "SP_LIMPIAR_TEMPORALES",
         "SP_ACTUALIZAR_AMORTIZACION_INVESTMENT",
+        ("sipro_desa.SP_ACTUALIZAR_AMORTIZACION_INVERSION", (None, None)),
+        "sipro_desa.SP_ACCION_ULTIMO_PRECIO_REFRESH",
+        "sipro_desa.sp_actualizar_snapshot_cartera",
     ]
 
-    for nombre_sp in lista_sps:
-        if not ejecutar_sp(nombre_sp):
+    for item in lista_sps:
+        if isinstance(item, tuple):
+            nombre_sp, args = item
+        else:
+            nombre_sp, args = item, ()
+
+        if not ejecutar_sp(nombre_sp, args):
             mensaje = "Se detuvo la ejecución de SPs por un error."
             imprimir_linea(mensaje, "error")
             escribir_log(mensaje)

@@ -253,8 +253,6 @@ def main():
                     comision_casa_valores,
                     retencion_fuente,
                     observacion,
-                    expirado,
-                    activo,
                     eliminado,
                     fecha_creacion,
                     fecha_actualizacion
@@ -262,7 +260,7 @@ def main():
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s
+                    %s, %s
                 )
                 """
                 
@@ -297,8 +295,8 @@ def main():
                     comision_casa_valores,     # comision_casa_valores
                     0.0,                       # retencion_fuente
                     f"Migrado de archivo: {row['archivo']}", # observacion
-                    0,                         # expirado
-                    1,                         # activo
+                    # 0,                         # expirado
+                    # 1,                         # activo
                     0,                         # eliminado
                     now_datetime,              # fecha_creacion
                     now_datetime               # fecha_actualizacion
@@ -322,15 +320,11 @@ def main():
                     int_parcial,
                     retencion,
                     id_estado_amortizacion,
-                    pagada,
-                    activo,
                     eliminado,
                     fecha_creacion,
                     fecha_actualizacion
                 ) VALUES (
                     NULL,
-                    %s,
-                    %s,
                     %s,
                     %s,
                     %s,
@@ -357,8 +351,8 @@ def main():
                     0,                     # int_parcial
                     0,                     # retencion
                     134,                   # id_estado_amortizacion
-                    0,                     # pagada
-                    1,                     # activo
+#                    0,                     # pagada
+#                    1,                     # activo
                     0                      # eliminado
                 )
                 cursor.execute(amort_sql, amort_params)
