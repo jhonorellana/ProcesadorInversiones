@@ -677,6 +677,11 @@ def execute_new_database_loader() -> None:
         escribir_log(mensaje)
 
 
+def execute_update_excel() -> None:
+    """Ejecuta update_excel_from_csv.py para actualizar el archivo Excel."""
+    ejecutar_script("update_excel_from_csv.py")
+
+
 # ---------------------------------------
 # Manejo de botones y multi-hilo
 # ---------------------------------------
@@ -738,6 +743,12 @@ def start_execution_database_loader() -> None:
 def start_execution_new_database_loader() -> None:
     run_in_thread(
         execute_new_database_loader, "Ejecutando: Carga a Nueva Base de Datos..."
+    )
+
+
+def start_execution_update_excel() -> None:
+    run_in_thread(
+        execute_update_excel, "Ejecutando: Actualizador de Excel desde CSV..."
     )
 
 
@@ -1076,7 +1087,7 @@ frame_carga_inversiones = tk.LabelFrame(
 )
 frame_carga_inversiones.pack(fill="x", padx=5, pady=3)
 
-for col in range(3):
+for col in range(4):
     frame_carga_inversiones.grid_columnconfigure(col, weight=1)
 
 btn_pdf_carga = tk.Button(
@@ -1105,6 +1116,15 @@ btn_new_db_carga = tk.Button(
     command=start_execution_new_database_loader,
 )
 btn_new_db_carga.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+
+btn_update_excel = tk.Button(
+    frame_carga_inversiones,
+    text="Actualizar Excel",
+    font=("Arial", 11),
+    width=BUTTON_WIDTH,
+    command=start_execution_update_excel,
+)
+btn_update_excel.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
 
 # Frame: Scripts individuales
 frame_scripts = tk.LabelFrame(
@@ -1164,6 +1184,6 @@ output_text.tag_config("normal", foreground="black")
 output_text.tag_config("error", foreground="red")
 
 # Registrar todos los botones
-all_buttons = [btn_all, btn_carga, btn_backup, btn_procedimientos, btn_descarga, btn_pdf_carga, btn_db_carga, btn_new_db_carga] + script_buttons
+all_buttons = [btn_all, btn_carga, btn_backup, btn_procedimientos, btn_descarga, btn_pdf_carga, btn_db_carga, btn_new_db_carga, btn_update_excel] + script_buttons
 
 root.mainloop()
