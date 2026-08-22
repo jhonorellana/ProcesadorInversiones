@@ -354,50 +354,48 @@ def hacer_backup_base_datos() -> None:
         escribir_log(mensaje)
 
 
-    # ---------------------------------------
 
-    # """Genera un backup comprimido (ZIP) de la base de datos."""
-    # try:
-    #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    #     backup_folder = "backups"
-    #     os.makedirs(backup_folder, exist_ok=True)
-    #     sql_filename = f"backup_sipro_desa_{timestamp}.sql"
-    #     sql_path = os.path.join(backup_folder, sql_filename)
+# ---------------------------------------
 
-    #     comando = [
-    #         "mysqldump",
-    #         "-u",
-    #         db_config["user"],
-    #         f"--password={db_config['password']}",
-    #         "sipro",
-    #     ]
+    """Genera un backup comprimido (ZIP) de la base de datos."""
+    try:
+        sql_filename = f"backup_release_control_db_{timestamp}.sql"
+        sql_path = os.path.join(backup_folder, sql_filename)
 
-    #     # Crear el archivo SQL
-    #     with open(sql_path, "w", encoding="utf-8") as f:
-    #         subprocess.run(comando, stdout=f, check=True)
+        comando = [
+            "mysqldump",
+            "-u",
+            db_config["user"],
+            f"--password={db_config['password']}",
+            "release_control_db",
+        ]
 
-    #     # Comprimir a ZIP
-    #     zip_filename = f"backup_sipro_{timestamp}.zip"
-    #     zip_path = os.path.join(backup_folder, zip_filename)
-    #     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-    #         zipf.write(sql_path, arcname=sql_filename)
+        # Crear el archivo SQL
+        with open(sql_path, "w", encoding="utf-8") as f:
+            subprocess.run(comando, stdout=f, check=True)
 
-    #     # Eliminar el SQL temporal
-    #     os.remove(sql_path)
+        # Comprimir a ZIP
+        zip_filename = f"backup_release_control_db_{timestamp}.zip"
+        zip_path = os.path.join(backup_folder, zip_filename)
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(sql_path, arcname=sql_filename)
 
-    #     mensaje = f"Backup comprimido en: {zip_path}"
-    #     imprimir_linea(mensaje, "normal")
-    #     escribir_log(mensaje)
-    # except subprocess.CalledProcessError as e:
-    #     mensaje = f"Error al ejecutar mysqldump: {e}"
-    #     marcar_error_en_pantalla("Error al generar el backup.")
-    #     imprimir_linea(mensaje, "error")
-    #     escribir_log(mensaje)
-    # except Exception as e:
-    #     mensaje = f"Error al crear el backup comprimido: {e}"
-    #     marcar_error_en_pantalla("Error al generar el backup.")
-    #     imprimir_linea(mensaje, "error")
-    #     escribir_log(mensaje)
+        # Eliminar el SQL temporal
+        os.remove(sql_path)
+
+        mensaje = f"Backup comprimido en: {zip_path}"
+        imprimir_linea(mensaje, "normal")
+        escribir_log(mensaje)
+    except subprocess.CalledProcessError as e:
+        mensaje = f"Error al ejecutar mysqldump: {e}"
+        marcar_error_en_pantalla("Error al generar el backup.")
+        imprimir_linea(mensaje, "error")
+        escribir_log(mensaje)
+    except Exception as e:
+        mensaje = f"Error al crear el backup comprimido: {e}"
+        marcar_error_en_pantalla("Error al generar el backup.")
+        imprimir_linea(mensaje, "error")
+        escribir_log(mensaje)
 
 
 
